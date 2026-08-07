@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5cb52" />
+    <title>오늘의 집 | 작은 성취를 모으는 곳</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#home" aria-label="오늘의 집 홈">
+          <span class="brand-mark"><i></i><i></i><i></i><i></i></span>
+          <span>오늘의 집<small>MY LITTLE DAY</small></span>
+        </a>
+        <div class="topbar-right">
+          <span class="streak"><b id="streak-number">7</b>일째 따뜻하게 살고 있어요</span>
+          <button class="round-button sound-button" id="sound-button" aria-label="소리 켜기">♪</button>
+          <button class="round-button menu-button" aria-label="메뉴 열기">☰</button>
+        </div>
+      </header>
+
+      <section class="hero" id="home">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> AUGUST 07, 2026</p>
+          <h1>오늘의 작은<br /><em>잘함</em>을 집에 놓아요.</h1>
+          <p class="intro">잘 해낸 하루는 작아도 충분히 반짝여요.<br />하나의 장식으로 오늘을 기억해 보세요.</p>
+          <button class="primary-button" id="open-entry"><span>+</span> 오늘의 잘한 일 기록하기</button>
+        </div>
+
+        <div class="scene-wrap" aria-label="3D 장난감 집">
+          <canvas id="house-canvas"></canvas>
+          <div class="decor-tooltip" id="decor-tooltip" role="status" aria-live="polite"><span>잘한 일</span><p></p></div>
+          <div class="house-name-editor" id="house-name-editor">
+            <button id="house-name-button" type="button" aria-label="집 이름 바꾸기"><span id="house-name-text">우리네 집</span><i>✎</i></button>
+            <input id="house-name-input" maxlength="8" aria-label="집 이름" placeholder="이름" autocomplete="off" />
+          </div>
+          <div class="scene-hint"><span>↔</span> 드래그해서 집 둘러보기</div>
+          <div class="scene-label label-roof">햇살 지붕</div>
+          <div class="scene-label label-door">나의 현관</div>
+        </div>
+
+        <aside class="preview-card">
+          <div class="preview-card-head">
+            <span class="live-dot"></span><span>MY HOME PREVIEW</span>
+            <b>LIVE</b>
+          </div>
+          <div class="preview-screen">
+            <div class="preview-sky"><span class="preview-sun">☀</span><i></i><i></i></div>
+            <div class="mini-house">
+              <span class="mini-roof"></span><span class="mini-wall"><i></i><i></i><b></b></span>
+              <span class="mini-tree"></span><span class="mini-flower">✿</span>
+            </div>
+            <div class="preview-ground"></div>
+            <div class="preview-caption"><span>오늘의 집</span><b id="preview-count">장식 02개</b></div>
+          </div>
+          <div class="preview-copy">
+            <p class="mini-title">TODAY'S MEMORY</p>
+            <p id="today-preview">여기에 오늘 잘한 일을<br />기록해 주세요.</p>
+          </div>
+          <button id="card-entry">미리보기에서 기록하기 <span>→</span></button>
+        </aside>
+      </section>
+
+      <section class="lower-panel">
+        <div class="collection-heading">
+          <p class="eyebrow"><span></span> MY COLLECTION</p>
+          <h2>차곡차곡 쌓인<br />나의 <em>잘한 일</em></h2>
+        </div>
+        <div class="progress-card">
+          <div class="progress-top"><span>이번 달의 따뜻한 기록</span><b id="record-count">02 <small>/ 31</small></b></div>
+          <div class="progress-track"><i id="progress-fill"></i></div>
+          <p>한 번의 기록이 집을 조금 더 나답게 만들어요.</p>
+        </div>
+        <div class="recent-card">
+          <p class="mini-title">RECENT MEMORIES</p>
+          <ul id="recent-list">
+            <li><span class="memory-dot flower"></span><div><b>친구에게 먼저 안부를 물었다</b><small>어제</small></div></li>
+            <li><span class="memory-dot book"></span><div><b>미뤄둔 책을 20쪽 읽었다</b><small>8월 5일</small></div></li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <div class="entry-backdrop" id="entry-backdrop" aria-hidden="true">
+      <section class="entry-modal" role="dialog" aria-modal="true" aria-labelledby="entry-title">
+        <button class="close-modal" id="close-entry" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> A LITTLE WIN</p>
+        <h2 id="entry-title">오늘, 무엇을<br /><em>잘 해냈나요?</em></h2>
+        <label for="memory-input">잘한 일을 짧게 적어 주세요</label>
+        <input id="memory-input" maxlength="42" placeholder="예: 산책을 하며 나에게 집중했다" autocomplete="off" />
+        <p class="choose-label">이 기억을 어떤 장식으로 남길까요?</p>
+        <div class="decor-options" id="decor-options">
+          <button class="decor-option selected" data-decor="flower"><span>✿</span> 꽃 화분</button>
+          <button class="decor-option" data-decor="lamp"><span>☀</span> 작은 조명</button>
+          <button class="decor-option" data-decor="book"><span>▤</span> 책 더미</button>
+          <button class="decor-option" data-decor="flag"><span>⚑</span> 응원 깃발</button>
+        </div>
+        <button class="primary-button save-button" id="save-memory">이 장식을 집에 놓기 <span>→</span></button>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"><span>✦</span><p><b>오늘의 장식이 놓였어요!</b>집이 조금 더 따뜻해졌습니다.</p></div>
+    <script type="module" src="./main.js?v=12"></script>
+  </body>
+</html>

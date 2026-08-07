@@ -1,0 +1,228 @@
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+
+const canvas = document.querySelector('#house-canvas');
+const sceneWrap = document.querySelector('.scene-wrap');
+const modal = document.querySelector('#entry-backdrop');
+const input = document.querySelector('#memory-input');
+const recentList = document.querySelector('#recent-list');
+const countEl = document.querySelector('#record-count');
+const progressFill = document.querySelector('#progress-fill');
+const todayPreview = document.querySelector('#today-preview');
+const previewCount = document.querySelector('#preview-count');
+const toast = document.querySelector('#toast');
+const decorTooltip = document.querySelector('#decor-tooltip');
+const houseNameEditor = document.querySelector('#house-name-editor');
+const houseNameButton = document.querySelector('#house-name-button');
+const houseNameText = document.querySelector('#house-name-text');
+const houseNameInput = document.querySelector('#house-name-input');
+const STORAGE_KEY = 'my-little-day-memories-v1';
+const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
+let selectedDecor = 'flower';
+let memories = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let houseName = localStorage.getItem(HOUSE_NAME_KEY) || '우리';
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, .1, 100);
+camera.position.set(8.5, 6.1, 10.5);
+const target = new THREE.Vector3(0, 1.45, 0);
+const world = new THREE.Group();
+world.rotation.y = -.5;
+scene.add(world);
+
+scene.add(new THREE.HemisphereLight(0xfff3c8, 0x56745c, 2.3));
+const sun = new THREE.DirectionalLight(0xffe0a0, 3.1);
+sun.position.set(4, 9, 6); sun.castShadow = true; sun.shadow.mapSize.set(1024,1024); scene.add(sun);
+const warm = new THREE.PointLight(0xffa73a, 2.2, 7); warm.position.set(-1, 2, 3); world.add(warm);
+
+const palette = { wall:0xfff4d7, roof:0xeb7651, trim:0xf1a237, wood:0x99623e, lawn:0x82aa68, path:0xf0c97a, glass:0x93c7d0, leaf:0x537b50, pot:0xdd7652, dark:0x493727, cream:0xfff9e8, blue:0x6babc3, pink:0xea8790 };
+const mat = (color, roughness=.8) => new THREE.MeshStandardMaterial({ color, roughness });
+function mesh(geometry, material, position, parent=world) { const m = new THREE.Mesh(geometry, material); m.position.copy(position); m.castShadow=true; m.receiveShadow=true; parent.add(m); return m; }
+function box(x,y,z,color,pos, parent=world) { return mesh(new THREE.BoxGeometry(x,y,z),mat(color),pos,parent); }
+function cylinder(rt,rb,h,color,pos,parent=world) { return mesh(new THREE.CylinderGeometry(rt,rb,h,20),mat(color),pos,parent); }
+function sphere(r,color,pos,parent=world) { return mesh(new THREE.SphereGeometry(r,20,16),mat(color),pos,parent); }
+
+// hand-painted toy base
+const base = mesh(new THREE.CylinderGeometry(5.7, 5.95, .48, 64), mat(0x759d63), new THREE.Vector3(0,-.35,0));
+const soil = mesh(new THREE.CylinderGeometry(5.32,5.42,.16,64),mat(0x9cc479),new THREE.Vector3(0,-.04,0));
+base.rotation.z = .02;
+// winding stone path
+for (let i=0;i<6;i++) { const stone=mesh(new THREE.SphereGeometry(.54-(i%2)*.05,16,10),mat(palette.path),new THREE.Vector3(-.2+i*.22,.08,4.25-i*.73)); stone.scale.set(1.15,.22,.8); stone.rotation.y=i*.25; }
+
+// house body and roof
+box(5.25,3.25,4.45,palette.wall,new THREE.Vector3(0,1.63,-.25));
+box(5.48,.30,4.68,palette.trim,new THREE.Vector3(0,.12,-.25));
+const roof = mesh(new THREE.ConeGeometry(3.95,2.55,4),mat(palette.roof),new THREE.Vector3(0,4.55,-.25)); roof.rotation.y=Math.PI/4;
+const roofCap = mesh(new THREE.CylinderGeometry(.22,.29,.52,20),mat(palette.wood),new THREE.Vector3(0,5.85,-.25));
+// roof stripes
+for (let x=-1.72;x<2;x+=.68) { const stripe=box(.09,1.7,4.1,0xf7a17e,new THREE.Vector3(x,4.22,-.25)); stripe.rotation.z = x<0 ? -.06 : .06; }
+
+// front door and windows
+box(1.08,1.92,.16,palette.wood,new THREE.Vector3(0,1.04,2.04));
+mesh(new THREE.SphereGeometry(.085,12,10),mat(0xf6ca4d),new THREE.Vector3(.34,1.05,2.16));
+box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09));
+box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09));
+for (const x of [-1.66,1.66]) { box(.12,1.62,.12,palette.cream,new THREE.Vector3(x,2.22,2.18)); box(1.68,.12,.12,palette.cream,new THREE.Vector3(x,2.22,2.18)); box(1.82,.15,.15,palette.roof,new THREE.Vector3(x,3.05,2.17)); }
+
+// A heart-shaped nameplate, rendered as part of the house facade.
+const nameplateCanvas = document.createElement('canvas');
+nameplateCanvas.width = 512; nameplateCanvas.height = 512;
+const nameplateContext = nameplateCanvas.getContext('2d');
+const nameplateTexture = new THREE.CanvasTexture(nameplateCanvas);
+nameplateTexture.colorSpace = THREE.SRGBColorSpace;
+function drawNameplate(){
+  const ctx = nameplateContext; ctx.clearRect(0,0,512,512); ctx.save(); ctx.scale(2,2);
+  ctx.beginPath(); ctx.moveTo(128,231);
+  ctx.bezierCurveTo(112,216,35,165,35,92);
+  ctx.bezierCurveTo(35,52,82,31,111,56);
+  ctx.bezierCurveTo(119,63,124,71,128,80);
+  ctx.bezierCurveTo(132,71,137,63,145,56);
+  ctx.bezierCurveTo(174,31,221,52,221,92);
+  ctx.bezierCurveTo(221,165,144,216,128,231); ctx.closePath();
+  ctx.fillStyle='#ed8c78'; ctx.fill(); ctx.lineWidth=5; ctx.strokeStyle='#fff1ca'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(92,73,8,0,Math.PI*2); ctx.fillStyle='rgba(255,245,210,.72)'; ctx.fill();
+  const label=`${houseName}네 집`; ctx.fillStyle='#fffdf4'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const nameFontSize = label.length <= 4 ? 44 : label.length <= 6 ? 34 : 27;
+  ctx.font=`800 ${nameFontSize}px Nanum Gothic, sans-serif`; ctx.fillText(label,128,134);
+  ctx.restore(); nameplateTexture.needsUpdate=true;
+}
+drawNameplate();
+const nameplate = mesh(new THREE.PlaneGeometry(1.42,1.42),new THREE.MeshBasicMaterial({map:nameplateTexture,transparent:true,alphaTest:.05,depthWrite:false,depthTest:true,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,side:THREE.DoubleSide}),new THREE.Vector3(0,2.65,2.18));
+nameplate.renderOrder = 3;
+nameplate.visible = true;
+// chimney
+box(.72,1.45,.72,palette.wood,new THREE.Vector3(1.58,4.7,-.65)); box(.9,.16,.9,palette.cream,new THREE.Vector3(1.58,5.42,-.65));
+
+function makeTree(x,z,scale=1) { const g=new THREE.Group(); g.position.set(x,.15,z); g.scale.setScalar(scale); world.add(g); cylinder(.17,.25,1.0,palette.wood,new THREE.Vector3(0,.5,0),g); sphere(.73,palette.leaf,new THREE.Vector3(0,1.4,0),g); sphere(.53,0x6b975b,new THREE.Vector3(.37,1.14,.12),g); sphere(.48,0x6b975b,new THREE.Vector3(-.35,1.23,.12),g); }
+makeTree(-4.15,-1.6,1.15); makeTree(3.98,-1.7,.75); makeTree(-4.3,2.25,.72);
+// mailbox
+box(.12,1.1,.12,palette.wood,new THREE.Vector3(3.6,.7,2.2));
+const mail=mesh(new THREE.CylinderGeometry(.35,.35,.65,18,1,false,0,Math.PI),mat(0x5f9ab3),new THREE.Vector3(3.6,1.22,2.2)); mail.rotation.z=Math.PI/2;
+// fence
+for(let x=-4.7;x<-2.2;x+=.5){ box(.10,.72,.10,palette.cream,new THREE.Vector3(x,.44,2.9)); }
+box(2.62,.09,.10,palette.cream,new THREE.Vector3(-3.45,.65,2.9));
+
+const placed = new THREE.Group(); world.add(placed);
+houseNameText.textContent = `${houseName}네 집`;
+const slots = [ [-2.65,.18,1.75], [2.3,.18,1.42], [-3.05,.18,-.2], [3.15,.18,.15], [-1.7,.18,3.2], [1.72,.18,3.28], [-3.75,.18,1.0], [3.8,.18,2.1] ];
+function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 장식') {
+  const g = new THREE.Group(); const [x,y,z]=slots[index%slots.length]; g.position.set(x,y,z); placed.add(g);
+  g.userData.memoryText = memoryText;
+  const hotspot = document.createElement('button');
+  hotspot.className = 'decor-hotspot'; hotspot.type = 'button';
+  hotspot.setAttribute('aria-label', `잘한 일: ${memoryText}`);
+  sceneWrap.appendChild(hotspot);
+  g.userData.hotspot = hotspot;
+  hotspot.addEventListener('mouseenter', () => showDecorTooltip(g, Number.parseFloat(hotspot.style.left), Number.parseFloat(hotspot.style.top)));
+  hotspot.addEventListener('focus', () => showDecorTooltip(g, Number.parseFloat(hotspot.style.left), Number.parseFloat(hotspot.style.top)));
+  hotspot.addEventListener('mouseleave', hideDecorTooltip);
+  hotspot.addEventListener('blur', hideDecorTooltip);
+  if(type==='flower') { cylinder(.26,.34,.42,palette.pot,new THREE.Vector3(0,.21,0),g); for(let i=0;i<5;i++){ const a=i*Math.PI*2/5; sphere(.14,0xf0a4ac,new THREE.Vector3(Math.cos(a)*.18,.58,Math.sin(a)*.18),g); } sphere(.12,0xf3c743,new THREE.Vector3(0,.58,0),g); }
+  if(type==='lamp') { cylinder(.06,.09,.78,palette.dark,new THREE.Vector3(0,.39,0),g); const shade=mesh(new THREE.ConeGeometry(.3,.42,18,1,true),mat(0xf5c64d),new THREE.Vector3(0,.86,0),g); shade.rotation.x=Math.PI; sphere(.11,0xfff4ad,new THREE.Vector3(0,.78,0),g); }
+  if(type==='book') { box(.55,.16,.38,0x74a7a0,new THREE.Vector3(0,.1,0),g); box(.48,.16,.36,0xf1b640,new THREE.Vector3(.03,.26,.01),g); box(.43,.16,.34,0xe47758,new THREE.Vector3(-.02,.42,-.01),g); }
+  if(type==='flag') { cylinder(.045,.055,1.05,palette.wood,new THREE.Vector3(0,.53,0),g); const flag=mesh(new THREE.PlaneGeometry(.54,.34),mat(0xf08368),new THREE.Vector3(.3,.84,0),g); flag.rotation.y=Math.PI/18; }
+  if(animate) { g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=y+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=y; }; requestAnimationFrame(grow); }
+}
+// a welcoming starter scene
+addDecoration('flower',0,false,'친구에게 먼저 안부를 물었다'); addDecoration('book',1,false,'미뤄둔 책을 20쪽 읽었다');
+
+function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i+2,false,m.text)); }
+addStoredDecorations();
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let dragging=false, lastX=0, desiredRotation=-.5, userHasDragged=false;
+function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }
+function showDecorTooltip(decoration, x, y){
+  decorTooltip.querySelector('p').textContent=decoration.userData.memoryText;
+  decorTooltip.style.left=`${x}px`;
+  decorTooltip.style.top=`${y-6}px`;
+  decorTooltip.classList.add('show');
+}
+function checkDecorHover(event){
+  if(dragging) return hideDecorTooltip();
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX-rect.left)/rect.width)*2-1;
+  pointer.y = -((event.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  const hit = raycaster.intersectObjects(placed.children,true)[0];
+  if(!hit) return hideDecorTooltip();
+  let decoration = hit.object;
+  while(decoration && !decoration.userData.memoryText) decoration=decoration.parent;
+  if(!decoration) return hideDecorTooltip();
+  showDecorTooltip(decoration,event.clientX-rect.left,event.clientY-rect.top);
+  canvas.style.cursor='pointer';
+}
+canvas.addEventListener('pointerdown',e=>{ dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove',e=>{ if(!dragging) return checkDecorHover(e); desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
+canvas.addEventListener('mousemove',e=>{ if(!dragging) checkDecorHover(e); });
+canvas.addEventListener('pointerup',e=>{ dragging=false; checkDecorHover(e); });
+canvas.addEventListener('pointerleave',hideDecorTooltip);
+
+function resize(){ const w=canvas.clientWidth,h=canvas.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+const projectedPosition = new THREE.Vector3();
+const nameplatePosition = new THREE.Vector3();
+function updateDecorHotspots(){
+  world.updateMatrixWorld(true);
+  placed.children.forEach(decoration=>{
+    const hotspot=decoration.userData.hotspot;
+    if(!hotspot) return;
+    decoration.getWorldPosition(projectedPosition);
+    projectedPosition.y += .48;
+    projectedPosition.project(camera);
+    const visible = projectedPosition.z > -1 && projectedPosition.z < 1;
+    hotspot.style.display=visible ? 'block' : 'none';
+    hotspot.style.left=`${(projectedPosition.x*.5+.5)*canvas.clientWidth}px`;
+    hotspot.style.top=`${(-projectedPosition.y*.5+.5)*canvas.clientHeight}px`;
+  });
+}
+function updateHouseName(){
+  nameplate.getWorldPosition(nameplatePosition); nameplatePosition.project(camera);
+  houseNameEditor.style.left=`${(nameplatePosition.x*.5+.5)*canvas.clientWidth}px`;
+  houseNameEditor.style.top=`${(-nameplatePosition.y*.5+.5)*canvas.clientHeight}px`;
+}
+function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=-.5+Math.sin(time*.00022)*.17; world.rotation.y += (desiredRotation-world.rotation.y)*.055; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+function renderRecords(){
+  const total = memories.length+2; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
+  previewCount.textContent=`장식 ${String(total).padStart(2,'0')}개`;
+  if(memories[0]) todayPreview.innerHTML=memories[0].text.replace(/(.{17})/g,'$1<br>');
+  const shown = memories.slice(0,3).map((m,i)=>`<li><span class="memory-dot ${m.decor}"></span><div><b>${escapeHTML(m.text)}</b><small>${i===0?'오늘':'최근 기록'}</small></div></li>`).join('');
+  if(shown) recentList.innerHTML=shown;
+}
+function escapeHTML(text){ const el=document.createElement('div');el.textContent=text;return el.innerHTML; }
+renderRecords();
+
+function saveHouseName(){
+  const nextName=houseNameInput.value.trim().replace(/네\s*집$/,'').trim();
+  if(nextName) houseName=nextName;
+  houseNameText.textContent=`${houseName}네 집`;
+  houseNameInput.value=houseName;
+  localStorage.setItem(HOUSE_NAME_KEY,houseName);
+  drawNameplate();
+  houseNameEditor.classList.remove('editing');
+}
+houseNameButton.addEventListener('click',()=>{ houseNameInput.value=houseName; houseNameEditor.classList.add('editing'); houseNameInput.focus(); houseNameInput.select(); });
+houseNameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') saveHouseName(); if(e.key==='Escape') houseNameEditor.classList.remove('editing'); });
+houseNameInput.addEventListener('blur',saveHouseName);
+
+function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(),180); }
+function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+document.querySelector('#open-entry').addEventListener('click',openModal);
+document.querySelector('#card-entry').addEventListener('click',openModal);
+document.querySelector('#close-entry').addEventListener('click',closeModal);
+modal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
+document.querySelectorAll('.decor-option').forEach(btn=>btn.addEventListener('click',()=>{ document.querySelector('.decor-option.selected').classList.remove('selected'); btn.classList.add('selected'); selectedDecor=btn.dataset.decor; }));
+document.querySelector('#save-memory').addEventListener('click',()=>{
+  const text=input.value.trim();
+  if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }
+  const memory={text,decor:selectedDecor,date:new Date().toISOString()}; memories.unshift(memory); localStorage.setItem(STORAGE_KEY,JSON.stringify(memories)); addDecoration(selectedDecor,memories.length+1,true,text); renderRecords(); input.value=''; closeModal(); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3600);
+});
+input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
+document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });

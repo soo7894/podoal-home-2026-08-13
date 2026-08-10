@@ -27,9 +27,11 @@ const houseNameInput = document.querySelector('#house-name-input');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
+const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 let selectedDecor = 'flower';
 let memories = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let streakStartDate = localStorage.getItem(STREAK_START_KEY) || '';
+let decorLayout = JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = localStorage.getItem(HOUSE_NAME_KEY) || '우리';
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
@@ -121,9 +123,17 @@ box(2.62,.09,.10,palette.cream,new THREE.Vector3(-3.45,.65,2.9));
 const placed = new THREE.Group(); world.add(placed);
 houseNameText.textContent = `${houseName}네 집`;
 const slots = [ [-2.65,.18,1.75], [2.3,.18,1.42], [-3.05,.18,-.2], [3.15,.18,.15], [-1.7,.18,3.2], [1.72,.18,3.28], [-3.75,.18,1.0], [3.8,.18,2.1] ];
-function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 장식') {
-  const g = new THREE.Group(); const [x,y,z]=slots[index%slots.length]; g.position.set(x,y,z); placed.add(g);
+const flowerColors = [0xf0a4ac,0xf18b75,0xeb7795,0xaf83ce,0xffb943,0x8fcf9a];
+function randomFlowerColor(){ return flowerColors[Math.floor(Math.random()*flowerColors.length)]; }
+function saveDecorationPosition(decoration){
+  decorLayout[decoration.userData.decorationId]={x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2))};
+  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+}
+function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 장식',decorationId=`${type}-${index}`,flowerColor=null) {
+  const g = new THREE.Group(); const [x,y,z]=slots[index%slots.length]; const savedPosition=decorLayout[decorationId]; g.position.set(savedPosition?.x??x,y,savedPosition?.z??z); placed.add(g);
   g.userData.memoryText = memoryText;
+  g.userData.decorationId = decorationId;
+  g.userData.baseY = y;
   const hotspot = document.createElement('button');
   hotspot.className = 'decor-hotspot'; hotspot.type = 'button';
   hotspot.setAttribute('aria-label', `잘한 일: ${memoryText}`);
@@ -133,21 +143,25 @@ function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 �
   hotspot.addEventListener('focus', () => showDecorTooltip(g, Number.parseFloat(hotspot.style.left), Number.parseFloat(hotspot.style.top)));
   hotspot.addEventListener('mouseleave', hideDecorTooltip);
   hotspot.addEventListener('blur', hideDecorTooltip);
-  if(type==='flower') { cylinder(.26,.34,.42,palette.pot,new THREE.Vector3(0,.21,0),g); for(let i=0;i<5;i++){ const a=i*Math.PI*2/5; sphere(.14,0xf0a4ac,new THREE.Vector3(Math.cos(a)*.18,.58,Math.sin(a)*.18),g); } sphere(.12,0xf3c743,new THREE.Vector3(0,.58,0),g); }
+  if(type==='flower') { const petalColor=flowerColor||randomFlowerColor(); cylinder(.26,.34,.42,palette.pot,new THREE.Vector3(0,.21,0),g); for(let i=0;i<5;i++){ const a=i*Math.PI*2/5; sphere(.14,petalColor,new THREE.Vector3(Math.cos(a)*.18,.58,Math.sin(a)*.18),g); } sphere(.12,0xf3c743,new THREE.Vector3(0,.58,0),g); }
   if(type==='lamp') { cylinder(.06,.09,.78,palette.dark,new THREE.Vector3(0,.39,0),g); const shade=mesh(new THREE.ConeGeometry(.3,.42,18,1,true),mat(0xf5c64d),new THREE.Vector3(0,.86,0),g); shade.rotation.x=Math.PI; sphere(.11,0xfff4ad,new THREE.Vector3(0,.78,0),g); }
   if(type==='book') { box(.55,.16,.38,0x74a7a0,new THREE.Vector3(0,.1,0),g); box(.48,.16,.36,0xf1b640,new THREE.Vector3(.03,.26,.01),g); box(.43,.16,.34,0xe47758,new THREE.Vector3(-.02,.42,-.01),g); }
   if(type==='flag') { cylinder(.045,.055,1.05,palette.wood,new THREE.Vector3(0,.53,0),g); const flag=mesh(new THREE.PlaneGeometry(.54,.34),mat(0xf08368),new THREE.Vector3(.3,.84,0),g); flag.rotation.y=Math.PI/18; }
+  if(type==='tree') { cylinder(.12,.17,.78,palette.wood,new THREE.Vector3(0,.39,0),g); sphere(.42,palette.leaf,new THREE.Vector3(0,.92,0),g); sphere(.31,0x6b975b,new THREE.Vector3(.25,.78,.06),g); sphere(.29,0x6b975b,new THREE.Vector3(-.25,.82,.06),g); }
+  if(!savedPosition) saveDecorationPosition(g);
   if(animate) { g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=y+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=y; }; requestAnimationFrame(grow); }
 }
 // a welcoming starter scene
-addDecoration('flower',0,false,'친구에게 먼저 안부를 물었다'); addDecoration('book',1,false,'미뤄둔 책을 20쪽 읽었다');
+addDecoration('flower',0,false,'친구에게 먼저 안부를 물었다','starter-flower'); addDecoration('book',1,false,'미뤄둔 책을 20쪽 읽었다','starter-book');
 
-function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i+2,false,m.text)); }
+function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i+2,false,m.text,`memory-${m.date||i}`,m.flowerColor)); }
 addStoredDecorations();
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-let dragging=false, lastX=0, desiredRotation=-.5, userHasDragged=false;
+const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.18);
+const dragPoint = new THREE.Vector3();
+let dragging=false, draggingDecoration=null, lastX=0, desiredRotation=-.5, userHasDragged=false;
 function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }
 function showDecorTooltip(decoration, x, y){
   decorTooltip.querySelector('p').textContent=decoration.userData.memoryText;
@@ -155,24 +169,39 @@ function showDecorTooltip(decoration, x, y){
   decorTooltip.style.top=`${y-6}px`;
   decorTooltip.classList.add('show');
 }
-function checkDecorHover(event){
-  if(dragging) return hideDecorTooltip();
+function getDecorationAtEvent(event){
   const rect = canvas.getBoundingClientRect();
   pointer.x = ((event.clientX-rect.left)/rect.width)*2-1;
   pointer.y = -((event.clientY-rect.top)/rect.height)*2+1;
   raycaster.setFromCamera(pointer,camera);
   const hit = raycaster.intersectObjects(placed.children,true)[0];
-  if(!hit) return hideDecorTooltip();
-  let decoration = hit.object;
+  if(!hit) return null;
+  let decoration=hit.object;
   while(decoration && !decoration.userData.memoryText) decoration=decoration.parent;
+  return decoration||null;
+}
+function moveDecoration(event,decoration){
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX-rect.left)/rect.width)*2-1;
+  pointer.y = -((event.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  if(!raycaster.ray.intersectPlane(dragPlane,dragPoint)) return;
+  placed.worldToLocal(dragPoint);
+  decoration.position.set(THREE.MathUtils.clamp(dragPoint.x,-4.25,4.25),decoration.userData.baseY,THREE.MathUtils.clamp(dragPoint.z,-3.75,3.65));
+}
+function checkDecorHover(event){
+  if(dragging) return hideDecorTooltip();
+  const rect = canvas.getBoundingClientRect();
+  const decoration=getDecorationAtEvent(event);
   if(!decoration) return hideDecorTooltip();
   showDecorTooltip(decoration,event.clientX-rect.left,event.clientY-rect.top);
   canvas.style.cursor='pointer';
 }
-canvas.addEventListener('pointerdown',e=>{ dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove',e=>{ if(!dragging) return checkDecorHover(e); desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
+canvas.addEventListener('pointerdown',e=>{ const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
+canvas.addEventListener('pointermove',e=>{ if(!dragging) return checkDecorHover(e); if(draggingDecoration){ moveDecoration(e,draggingDecoration); return; } desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
 canvas.addEventListener('mousemove',e=>{ if(!dragging) checkDecorHover(e); });
-canvas.addEventListener('pointerup',e=>{ dragging=false; checkDecorHover(e); });
+canvas.addEventListener('pointerup',e=>{ if(draggingDecoration){ saveDecorationPosition(draggingDecoration); draggingDecoration=null; } dragging=false; checkDecorHover(e); });
+canvas.addEventListener('pointercancel',()=>{ if(draggingDecoration){ saveDecorationPosition(draggingDecoration); draggingDecoration=null; } dragging=false; hideDecorTooltip(); });
 canvas.addEventListener('pointerleave',hideDecorTooltip);
 
 function resize(){ const w=canvas.clientWidth,h=canvas.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
@@ -293,7 +322,8 @@ document.querySelectorAll('.decor-option').forEach(btn=>btn.addEventListener('cl
 document.querySelector('#save-memory').addEventListener('click',()=>{
   const text=input.value.trim();
   if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }
-  const memory={text,decor:selectedDecor,date:new Date().toISOString()}; memories.unshift(memory); localStorage.setItem(STORAGE_KEY,JSON.stringify(memories)); addDecoration(selectedDecor,memories.length+1,true,text); renderRecords(); input.value=''; closeModal(); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3600);
+  const flowerColor=selectedDecor==='flower'?randomFlowerColor():null;
+  const memory={text,decor:selectedDecor,date:new Date().toISOString(),flowerColor}; memories.unshift(memory); localStorage.setItem(STORAGE_KEY,JSON.stringify(memories)); addDecoration(selectedDecor,memories.length+1,true,text,`memory-${memory.date}`,flowerColor); renderRecords(); input.value=''; closeModal(); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3600);
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
 document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });

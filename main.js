@@ -268,11 +268,20 @@ function updateHouseName(){
 function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=-.5+Math.sin(time*.00022)*.17; world.rotation.y += (desiredRotation-world.rotation.y)*.055; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
+function formatMemoryTimestamp(value){
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '기록 시간 없음';
+  const hour=date.getHours();
+  const period=hour<12?'오전':'오후';
+  const displayHour=hour%12||12;
+  return `${date.getMonth()+1}월 ${date.getDate()}일 ${period} ${displayHour}:${String(date.getMinutes()).padStart(2,'0')}`;
+}
+
 function renderRecords(){
   const total = memories.length+2; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
   previewCount.textContent=`장식 ${String(total).padStart(2,'0')}개`;
   if(memories[0]) todayPreview.innerHTML=memories[0].text.replace(/(.{17})/g,'$1<br>');
-  const shown = memories.slice(0,3).map((m,i)=>`<li><span class="memory-dot ${m.decor}"></span><div><b>${escapeHTML(m.text)}</b><small>${i===0?'오늘':'최근 기록'}</small></div></li>`).join('');
+  const shown = memories.slice(0,3).map(m=>`<li><span class="memory-dot ${m.decor}"></span><div><b>${escapeHTML(m.text)}</b><small>${formatMemoryTimestamp(m.date)}</small></div></li>`).join('');
   if(shown) recentList.innerHTML=shown;
 }
 function escapeHTML(text){ const el=document.createElement('div');el.textContent=text;return el.innerHTML; }

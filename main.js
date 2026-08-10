@@ -120,7 +120,7 @@ box(2.62,.09,.10,palette.cream,new THREE.Vector3(-3.45,.65,2.9));
 
 const placed = new THREE.Group(); world.add(placed);
 houseNameText.textContent = `${houseName}네 집`;
-const slots = [ [-2.65,.18,1.75], [2.3,.18,1.42], [-3.05,.18,-.2], [3.15,.18,.15], [-1.7,.18,3.2], [1.72,.18,3.28], [-3.75,.18,1.0], [3.8,.18,2.1] ];
+const slots = [ [-2.65,.04,1.75], [2.3,.04,1.42], [-3.05,.04,-.2], [3.15,.04,.15], [-1.7,.04,3.2], [1.72,.04,3.28], [-3.75,.04,1.0], [3.8,.04,2.1] ];
 const houseZone = { minX:-3.12, maxX:3.12, minZ:-3.10, maxZ:2.58 };
 function keepOutsideHouse(x,z){
   const safeX=THREE.MathUtils.clamp(x,-4.45,4.45);
@@ -171,7 +171,7 @@ addStoredDecorations();
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.18);
+const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.04);
 const dragPoint = new THREE.Vector3();
 let dragging=false, draggingDecoration=null, lastX=0, desiredRotation=-.5, userHasDragged=false;
 function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }

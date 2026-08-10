@@ -78,20 +78,15 @@ for (let x=-1.72;x<2;x+=.68) { const stripe=box(.09,1.7,4.1,0xf7a17e,new THREE.V
 // front door and windows
 const frontFacade=new THREE.Group(); world.add(frontFacade);
 const warmInterior = new THREE.Group(); warmInterior.visible=false; world.add(warmInterior);
-const interiorCanvas=document.createElement('canvas'); interiorCanvas.width=640; interiorCanvas.height=360;
+const interiorCanvas=document.createElement('canvas'); interiorCanvas.width=256; interiorCanvas.height=384;
 const interiorContext=interiorCanvas.getContext('2d');
-const interiorGlow=interiorContext.createRadialGradient(330,145,12,330,145,410); interiorGlow.addColorStop(0,'#ffe5a0'); interiorGlow.addColorStop(.48,'#cc8052'); interiorGlow.addColorStop(1,'#623d36'); interiorContext.fillStyle=interiorGlow; interiorContext.fillRect(0,0,640,360);
-interiorContext.fillStyle='#85523c'; interiorContext.fillRect(35,38,170,150); interiorContext.fillStyle='#f9d67b'; interiorContext.fillRect(48,52,144,122); interiorContext.fillStyle='rgba(255,255,235,.7)'; interiorContext.fillRect(118,52,9,122); interiorContext.fillRect(48,110,144,8);
-interiorContext.fillStyle='#4d332e'; interiorContext.fillRect(395,190,170,18); interiorContext.fillRect(416,208,16,94); interiorContext.fillRect(530,208,16,94); interiorContext.fillStyle='#f4bd58'; interiorContext.fillRect(451,145,55,43); interiorContext.fillStyle='#fff1bd'; interiorContext.beginPath(); interiorContext.arc(479,133,28,0,Math.PI*2); interiorContext.fill();
-interiorContext.fillStyle='#be6e55'; interiorContext.fillRect(105,255,360,82); interiorContext.fillStyle='#efb177'; interiorContext.fillRect(124,270,322,45); interiorContext.fillStyle='#7a4737'; interiorContext.fillRect(250,232,94,28);
+const interiorGlow=interiorContext.createRadialGradient(134,146,8,134,146,218); interiorGlow.addColorStop(0,'#fff0b7'); interiorGlow.addColorStop(.5,'#c9784d'); interiorGlow.addColorStop(1,'#51332d'); interiorContext.fillStyle=interiorGlow; interiorContext.fillRect(0,0,256,384);
+interiorContext.fillStyle='#7c4938'; interiorContext.fillRect(24,38,92,112); interiorContext.fillStyle='#ffe19a'; interiorContext.fillRect(34,49,72,88); interiorContext.fillStyle='rgba(255,255,240,.65)'; interiorContext.fillRect(68,49,7,88); interiorContext.fillRect(34,91,72,7);
+interiorContext.fillStyle='#56372f'; interiorContext.fillRect(131,208,98,15); interiorContext.fillRect(145,223,11,70); interiorContext.fillRect(205,223,11,70); interiorContext.fillStyle='#f5be57'; interiorContext.fillRect(163,176,37,31); interiorContext.fillStyle='#fff2bb'; interiorContext.beginPath(); interiorContext.arc(181,166,18,0,Math.PI*2); interiorContext.fill();
+interiorContext.fillStyle='#bf6f56'; interiorContext.fillRect(36,288,183,58); interiorContext.fillStyle='#edb17a'; interiorContext.fillRect(47,299,161,34);
 const interiorTexture=new THREE.CanvasTexture(interiorCanvas); interiorTexture.colorSpace=THREE.SRGBColorSpace;
-const interiorPanel=mesh(new THREE.PlaneGeometry(4.9,2.88),new THREE.MeshBasicMaterial({map:interiorTexture,transparent:true,opacity:.72,depthWrite:false,side:THREE.DoubleSide}),new THREE.Vector3(0,1.58,-2.34),warmInterior); interiorPanel.renderOrder=2;
-const interiorFloor=mesh(new THREE.PlaneGeometry(4.95,4.15),mat(0xb97b55),new THREE.Vector3(0,.08,-.25),warmInterior); interiorFloor.rotation.x=-Math.PI/2;
-box(.12,2.88,4.08,0xb36d4e,new THREE.Vector3(-2.43,1.58,-.28),warmInterior);
-box(1.72,.48,.78,0xc97659,new THREE.Vector3(.72,.39,1.08),warmInterior); box(1.72,.42,.16,0xb96350,new THREE.Vector3(.72,.78,.78),warmInterior); box(.12,.46,.12,palette.wood,new THREE.Vector3(.06,.16,1.08),warmInterior); box(.12,.46,.12,palette.wood,new THREE.Vector3(1.38,.16,1.08),warmInterior);
-box(.92,.15,.72,0x946345,new THREE.Vector3(-.82,.42,1.02),warmInterior); cylinder(.08,.11,.68,palette.wood,new THREE.Vector3(-.82,.23,1.02),warmInterior); sphere(.16,0xffd36a,new THREE.Vector3(-.82,.88,1.02),warmInterior);
-box(.88,.43,.72,0xdfa26b,new THREE.Vector3(-1.65,.38,.35),warmInterior); box(.88,.35,.15,0xc78259,new THREE.Vector3(-1.65,.72,.08),warmInterior);
-const interiorLight=new THREE.PointLight(0xffb347,0,7); interiorLight.position.set(0,1.85,.45); world.add(interiorLight);
+const interiorPanel=mesh(new THREE.PlaneGeometry(.99,1.82),new THREE.MeshBasicMaterial({map:interiorTexture,side:THREE.DoubleSide}),new THREE.Vector3(0,1.04,2.035),warmInterior); interiorPanel.renderOrder=2;
+const interiorLight=new THREE.PointLight(0xffb347,0,4.5); interiorLight.position.set(0,1.15,2.3); world.add(interiorLight);
 const doorPivot=new THREE.Group(); doorPivot.position.set(-.54,.08,2.04); world.add(doorPivot);
 const doorMesh=box(1.08,1.92,.16,palette.wood,new THREE.Vector3(.54,.96,0),doorPivot); doorMesh.userData.isDoor=true;
 box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,.56,.095),doorPivot);
@@ -248,9 +243,6 @@ function toggleDoor(){
   doorOpen=!doorOpen;
   doorTargetRotation=doorOpen?OPEN_DOOR_ANGLE:0;
   warmInterior.visible=doorOpen;
-  houseBody.visible=!doorOpen;
-  frontFacade.visible=!doorOpen;
-  nameplate.visible=!doorOpen;
   interiorLight.intensity=doorOpen?2.2:0;
 }
 function moveDecoration(event,decoration){

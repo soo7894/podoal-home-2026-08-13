@@ -41,9 +41,10 @@
             <button id="house-name-button" type="button" aria-label="집 이름 바꾸기"><span id="house-name-text">우리네 집</span><i>✎</i></button>
             <input id="house-name-input" maxlength="8" aria-label="집 이름" placeholder="이름" autocomplete="off" />
           </div>
-          <div class="scene-actions" aria-label="집 모습 저장과 공유">
-            <button class="scene-capture-button" id="save-home-image" type="button"><span>↓</span> 저장</button>
-            <button class="scene-capture-button" id="share-home-image" type="button"><span>↗</span> 공유</button>
+          <div class="scene-actions">
+            <button class="scene-capture-button" id="open-home-capture" type="button" aria-label="사진찍기" data-tooltip="사진찍기">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5h3l1.1-2h6.8l1.1 2h3A1.5 1.5 0 0 1 21 9v8.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V9a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            </button>
           </div>
           <div class="scene-hint"><span>↔</span> 문·꽃은 클릭, 장식은 끌어 놓기</div>
           <div class="scene-label label-roof">햇살 지붕</div>
@@ -111,6 +112,20 @@
       </section>
     </div>
 
+    <div class="entry-backdrop capture-backdrop" id="capture-backdrop" aria-hidden="true">
+      <section class="capture-modal" role="dialog" aria-modal="true" aria-labelledby="capture-title">
+        <button class="close-modal" id="close-capture" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> MY LITTLE SNAPSHOT</p>
+        <h2 id="capture-title">방금 찍은<br /><em>나의 작은 집</em></h2>
+        <div class="capture-image-frame"><img id="captured-home-image" alt="현재 각도와 장식 상태가 담긴 나의 집 사진" /></div>
+        <p class="capture-description">이 사진에는 지금 보고 있는 집의 각도와 장식이 그대로 담겨 있어요.</p>
+        <div class="capture-actions">
+          <button class="capture-action capture-save" id="save-captured-image" type="button"><span>↓</span> 저장하기</button>
+          <button class="capture-action capture-share" id="share-captured-image" type="button"><span>↗</span> 공유하기</button>
+        </div>
+      </section>
+    </div>
+
     <div class="toast" id="toast" role="status"><span>✦</span><p><b>오늘의 장식이 놓였어요!</b>집이 조금 더 따뜻해졌습니다.</p></div>
     <div class="entry-backdrop streak-backdrop" id="streak-backdrop" aria-hidden="true">
       <section class="streak-modal" role="dialog" aria-modal="true" aria-labelledby="streak-title">
@@ -124,6 +139,6 @@
         <button class="primary-button save-button" id="save-start-date">이날부터 시작하기 <span>→</span></button>
       </section>
     </div>
-    <script type="module" src="./main.js?v=25"></script>
+    <script type="module" src="./main.js?v=26"></script>
   </body>
 </html>

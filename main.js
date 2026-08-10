@@ -24,8 +24,12 @@ const houseNameEditor = document.querySelector('#house-name-editor');
 const houseNameButton = document.querySelector('#house-name-button');
 const houseNameText = document.querySelector('#house-name-text');
 const houseNameInput = document.querySelector('#house-name-input');
-const saveHomeImageButton = document.querySelector('#save-home-image');
-const shareHomeImageButton = document.querySelector('#share-home-image');
+const openHomeCaptureButton = document.querySelector('#open-home-capture');
+const captureBackdrop = document.querySelector('#capture-backdrop');
+const closeCaptureButton = document.querySelector('#close-capture');
+const capturedHomeImage = document.querySelector('#captured-home-image');
+const saveCapturedImageButton = document.querySelector('#save-captured-image');
+const shareCapturedImageButton = document.querySelector('#share-captured-image');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
@@ -319,7 +323,9 @@ function homeImageFileName(){
 }
 function captureHomeImage(){
   renderer.render(scene,camera);
-  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('capture failed')),'image/png'));
+  const snapshot=document.createElement('canvas'); snapshot.width=canvas.width; snapshot.height=canvas.height;
+  const context=snapshot.getContext('2d'); context.fillStyle='#f5cd58'; context.fillRect(0,0,snapshot.width,snapshot.height); context.drawImage(canvas,0,0);
+  return new Promise((resolve,reject)=>snapshot.toBlob(blob=>blob?resolve(blob):reject(new Error('capture failed')),'image/png'));
 }
 function downloadHomeImage(blob,fileName){
   const url=URL.createObjectURL(blob);
@@ -334,30 +340,44 @@ function showCaptureNotice(title,description){
   message.append(heading,document.createTextNode(description));
   toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3200);
 }
-async function saveHomeImage(){
+let capturedImageBlob=null, capturedImageUrl='', capturedImageName='';
+async function openCapturePreview(){
   try {
-    const fileName=homeImageFileName();
-    downloadHomeImage(await captureHomeImage(),fileName);
-    showCaptureNotice('집 모습을 저장했어요!','다운로드한 PNG 파일을 확인해 보세요.');
+    capturedImageBlob=await captureHomeImage();
+    capturedImageName=homeImageFileName();
+    if(capturedImageUrl) URL.revokeObjectURL(capturedImageUrl);
+    capturedImageUrl=URL.createObjectURL(capturedImageBlob);
+    capturedHomeImage.src=capturedImageUrl;
+    captureBackdrop.classList.add('open'); captureBackdrop.setAttribute('aria-hidden','false');
+    setTimeout(()=>saveCapturedImageButton.focus(),160);
   } catch { showCaptureNotice('이미지를 만들지 못했어요.','잠시 후 다시 시도해 주세요.'); }
 }
-async function shareHomeImage(){
+function closeCapturePreview(){ captureBackdrop.classList.remove('open'); captureBackdrop.setAttribute('aria-hidden','true'); }
+function saveCapturedImage(){
+  if(!capturedImageBlob) return;
+  downloadHomeImage(capturedImageBlob,capturedImageName);
+  showCaptureNotice('사진을 저장했어요!','다운로드한 PNG 파일을 확인해 보세요.');
+}
+async function shareCapturedImage(){
+  if(!capturedImageBlob) return;
   try {
-    const fileName=homeImageFileName();
-    const file=new File([await captureHomeImage()],fileName,{type:'image/png'});
+    const file=new File([capturedImageBlob],capturedImageName,{type:'image/png'});
     if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
       await navigator.share({ title:'나의 오늘의 집', text:'오늘의 잘한 일로 꾸민 나의 작은 집이에요.', files:[file] });
-      showCaptureNotice('집 모습을 공유했어요!','따뜻한 오늘을 함께 나눴어요.');
+      showCaptureNotice('사진을 공유했어요!','따뜻한 오늘을 함께 나눴어요.');
       return;
     }
-    downloadHomeImage(file,fileName);
+    downloadHomeImage(file,capturedImageName);
     showCaptureNotice('공유용 이미지를 저장했어요!','이 기기에서는 저장한 파일로 공유할 수 있어요.');
   } catch(error) {
     if(error?.name!=='AbortError') showCaptureNotice('공유를 준비하지 못했어요.','잠시 후 다시 시도해 주세요.');
   }
 }
-saveHomeImageButton.addEventListener('click',saveHomeImage);
-shareHomeImageButton.addEventListener('click',shareHomeImage);
+openHomeCaptureButton.addEventListener('click',openCapturePreview);
+closeCaptureButton.addEventListener('click',closeCapturePreview);
+captureBackdrop.addEventListener('click',event=>{ if(event.target===captureBackdrop) closeCapturePreview(); });
+saveCapturedImageButton.addEventListener('click',saveCapturedImage);
+shareCapturedImageButton.addEventListener('click',shareCapturedImage);
 
 function formatMemoryTimestamp(value){
   const date=new Date(value);

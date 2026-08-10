@@ -68,7 +68,7 @@ base.rotation.z = .02;
 for (let i=0;i<6;i++) { const stone=mesh(new THREE.SphereGeometry(.54-(i%2)*.05,16,10),mat(palette.path),new THREE.Vector3(-.2+i*.22,.08,4.25-i*.73)); stone.scale.set(1.15,.22,.8); stone.rotation.y=i*.25; }
 
 // house body and roof
-box(5.25,3.25,4.45,palette.wall,new THREE.Vector3(0,1.63,-.25));
+const houseBody=box(5.25,3.25,4.45,palette.wall,new THREE.Vector3(0,1.63,-.25));
 box(5.48,.30,4.68,palette.trim,new THREE.Vector3(0,.12,-.25));
 const roof = mesh(new THREE.ConeGeometry(3.95,2.55,4),mat(palette.roof),new THREE.Vector3(0,4.55,-.25)); roof.rotation.y=Math.PI/4;
 const roofCap = mesh(new THREE.CylinderGeometry(.22,.29,.52,20),mat(palette.wood),new THREE.Vector3(0,5.85,-.25));
@@ -76,26 +76,31 @@ const roofCap = mesh(new THREE.CylinderGeometry(.22,.29,.52,20),mat(palette.wood
 for (let x=-1.72;x<2;x+=.68) { const stripe=box(.09,1.7,4.1,0xf7a17e,new THREE.Vector3(x,4.22,-.25)); stripe.rotation.z = x<0 ? -.06 : .06; }
 
 // front door and windows
+const frontFacade=new THREE.Group(); world.add(frontFacade);
 const warmInterior = new THREE.Group(); warmInterior.visible=false; world.add(warmInterior);
-const interiorCanvas=document.createElement('canvas'); interiorCanvas.width=256; interiorCanvas.height=384;
+const interiorCanvas=document.createElement('canvas'); interiorCanvas.width=640; interiorCanvas.height=360;
 const interiorContext=interiorCanvas.getContext('2d');
-const interiorGlow=interiorContext.createRadialGradient(128,176,10,128,176,220); interiorGlow.addColorStop(0,'#f8c65c'); interiorGlow.addColorStop(.55,'#9c5b38'); interiorGlow.addColorStop(1,'#442d2a'); interiorContext.fillStyle=interiorGlow; interiorContext.fillRect(0,0,256,384);
-interiorContext.fillStyle='#6f4431'; interiorContext.fillRect(26,42,80,102); interiorContext.fillStyle='#ffe8a7'; interiorContext.fillRect(34,50,64,86);
-interiorContext.fillStyle='#4c3029'; interiorContext.fillRect(128,205,104,16); interiorContext.fillRect(143,220,12,74); interiorContext.fillRect(205,220,12,74);
-interiorContext.fillStyle='#f1c462'; interiorContext.fillRect(151,174,40,33); interiorContext.fillStyle='#fff0b6'; interiorContext.beginPath(); interiorContext.arc(171,166,18,0,Math.PI*2); interiorContext.fill();
-interiorContext.fillStyle='#c46e54'; interiorContext.fillRect(49,287,160,62); interiorContext.fillStyle='#e8ab72'; interiorContext.fillRect(58,299,142,38);
+const interiorGlow=interiorContext.createRadialGradient(330,145,12,330,145,410); interiorGlow.addColorStop(0,'#ffe5a0'); interiorGlow.addColorStop(.48,'#cc8052'); interiorGlow.addColorStop(1,'#623d36'); interiorContext.fillStyle=interiorGlow; interiorContext.fillRect(0,0,640,360);
+interiorContext.fillStyle='#85523c'; interiorContext.fillRect(35,38,170,150); interiorContext.fillStyle='#f9d67b'; interiorContext.fillRect(48,52,144,122); interiorContext.fillStyle='rgba(255,255,235,.7)'; interiorContext.fillRect(118,52,9,122); interiorContext.fillRect(48,110,144,8);
+interiorContext.fillStyle='#4d332e'; interiorContext.fillRect(395,190,170,18); interiorContext.fillRect(416,208,16,94); interiorContext.fillRect(530,208,16,94); interiorContext.fillStyle='#f4bd58'; interiorContext.fillRect(451,145,55,43); interiorContext.fillStyle='#fff1bd'; interiorContext.beginPath(); interiorContext.arc(479,133,28,0,Math.PI*2); interiorContext.fill();
+interiorContext.fillStyle='#be6e55'; interiorContext.fillRect(105,255,360,82); interiorContext.fillStyle='#efb177'; interiorContext.fillRect(124,270,322,45); interiorContext.fillStyle='#7a4737'; interiorContext.fillRect(250,232,94,28);
 const interiorTexture=new THREE.CanvasTexture(interiorCanvas); interiorTexture.colorSpace=THREE.SRGBColorSpace;
-const interiorPanel=mesh(new THREE.PlaneGeometry(.99,1.82),new THREE.MeshBasicMaterial({map:interiorTexture}),new THREE.Vector3(0,1.04,2.135),warmInterior); interiorPanel.renderOrder=2;
-const interiorLight=new THREE.PointLight(0xffb347,0,4.5); interiorLight.position.set(0,1.18,2.55); world.add(interiorLight);
+const interiorPanel=mesh(new THREE.PlaneGeometry(4.9,2.88),new THREE.MeshBasicMaterial({map:interiorTexture,transparent:true,opacity:.72,depthWrite:false,side:THREE.DoubleSide}),new THREE.Vector3(0,1.58,-2.34),warmInterior); interiorPanel.renderOrder=2;
+const interiorFloor=mesh(new THREE.PlaneGeometry(4.95,4.15),mat(0xb97b55),new THREE.Vector3(0,.08,-.25),warmInterior); interiorFloor.rotation.x=-Math.PI/2;
+box(.12,2.88,4.08,0xb36d4e,new THREE.Vector3(-2.43,1.58,-.28),warmInterior);
+box(1.72,.48,.78,0xc97659,new THREE.Vector3(.72,.39,1.08),warmInterior); box(1.72,.42,.16,0xb96350,new THREE.Vector3(.72,.78,.78),warmInterior); box(.12,.46,.12,palette.wood,new THREE.Vector3(.06,.16,1.08),warmInterior); box(.12,.46,.12,palette.wood,new THREE.Vector3(1.38,.16,1.08),warmInterior);
+box(.92,.15,.72,0x946345,new THREE.Vector3(-.82,.42,1.02),warmInterior); cylinder(.08,.11,.68,palette.wood,new THREE.Vector3(-.82,.23,1.02),warmInterior); sphere(.16,0xffd36a,new THREE.Vector3(-.82,.88,1.02),warmInterior);
+box(.88,.43,.72,0xdfa26b,new THREE.Vector3(-1.65,.38,.35),warmInterior); box(.88,.35,.15,0xc78259,new THREE.Vector3(-1.65,.72,.08),warmInterior);
+const interiorLight=new THREE.PointLight(0xffb347,0,7); interiorLight.position.set(0,1.85,.45); world.add(interiorLight);
 const doorPivot=new THREE.Group(); doorPivot.position.set(-.54,.08,2.04); world.add(doorPivot);
 const doorMesh=box(1.08,1.92,.16,palette.wood,new THREE.Vector3(.54,.96,0),doorPivot); doorMesh.userData.isDoor=true;
 box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,.56,.095),doorPivot);
 mesh(new THREE.SphereGeometry(.085,12,10),mat(0xf6ca4d),new THREE.Vector3(.88,.97,.12),doorPivot);
 let doorOpen=false, doorTargetRotation=0;
 const OPEN_DOOR_ANGLE=-Math.PI*.47;
-box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09));
-box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09));
-for (const x of [-1.66,1.66]) { box(.12,1.62,.12,palette.cream,new THREE.Vector3(x,2.22,2.18)); box(1.68,.12,.12,palette.cream,new THREE.Vector3(x,2.22,2.18)); box(1.82,.15,.15,palette.roof,new THREE.Vector3(x,3.05,2.17)); }
+box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09),frontFacade);
+box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09),frontFacade);
+for (const x of [-1.66,1.66]) { box(.12,1.62,.12,palette.cream,new THREE.Vector3(x,2.22,2.18),frontFacade); box(1.68,.12,.12,palette.cream,new THREE.Vector3(x,2.22,2.18),frontFacade); box(1.82,.15,.15,palette.roof,new THREE.Vector3(x,3.05,2.17),frontFacade); }
 
 // A heart-shaped nameplate, rendered as part of the house facade.
 const nameplateCanvas = document.createElement('canvas');
@@ -243,6 +248,9 @@ function toggleDoor(){
   doorOpen=!doorOpen;
   doorTargetRotation=doorOpen?OPEN_DOOR_ANGLE:0;
   warmInterior.visible=doorOpen;
+  houseBody.visible=!doorOpen;
+  frontFacade.visible=!doorOpen;
+  nameplate.visible=!doorOpen;
   interiorLight.intensity=doorOpen?2.2:0;
 }
 function moveDecoration(event,decoration){

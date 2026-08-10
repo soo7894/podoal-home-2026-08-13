@@ -76,8 +76,23 @@ const roofCap = mesh(new THREE.CylinderGeometry(.22,.29,.52,20),mat(palette.wood
 for (let x=-1.72;x<2;x+=.68) { const stripe=box(.09,1.7,4.1,0xf7a17e,new THREE.Vector3(x,4.22,-.25)); stripe.rotation.z = x<0 ? -.06 : .06; }
 
 // front door and windows
-box(1.08,1.92,.16,palette.wood,new THREE.Vector3(0,1.04,2.04));
-mesh(new THREE.SphereGeometry(.085,12,10),mat(0xf6ca4d),new THREE.Vector3(.34,1.05,2.16));
+const warmInterior = new THREE.Group(); warmInterior.visible=false; world.add(warmInterior);
+const interiorCanvas=document.createElement('canvas'); interiorCanvas.width=256; interiorCanvas.height=384;
+const interiorContext=interiorCanvas.getContext('2d');
+const interiorGlow=interiorContext.createRadialGradient(128,176,10,128,176,220); interiorGlow.addColorStop(0,'#f8c65c'); interiorGlow.addColorStop(.55,'#9c5b38'); interiorGlow.addColorStop(1,'#442d2a'); interiorContext.fillStyle=interiorGlow; interiorContext.fillRect(0,0,256,384);
+interiorContext.fillStyle='#6f4431'; interiorContext.fillRect(26,42,80,102); interiorContext.fillStyle='#ffe8a7'; interiorContext.fillRect(34,50,64,86);
+interiorContext.fillStyle='#4c3029'; interiorContext.fillRect(128,205,104,16); interiorContext.fillRect(143,220,12,74); interiorContext.fillRect(205,220,12,74);
+interiorContext.fillStyle='#f1c462'; interiorContext.fillRect(151,174,40,33); interiorContext.fillStyle='#fff0b6'; interiorContext.beginPath(); interiorContext.arc(171,166,18,0,Math.PI*2); interiorContext.fill();
+interiorContext.fillStyle='#c46e54'; interiorContext.fillRect(49,287,160,62); interiorContext.fillStyle='#e8ab72'; interiorContext.fillRect(58,299,142,38);
+const interiorTexture=new THREE.CanvasTexture(interiorCanvas); interiorTexture.colorSpace=THREE.SRGBColorSpace;
+const interiorPanel=mesh(new THREE.PlaneGeometry(.99,1.82),new THREE.MeshBasicMaterial({map:interiorTexture}),new THREE.Vector3(0,1.04,2.135),warmInterior); interiorPanel.renderOrder=2;
+const interiorLight=new THREE.PointLight(0xffb347,0,4.5); interiorLight.position.set(0,1.18,2.55); world.add(interiorLight);
+const doorPivot=new THREE.Group(); doorPivot.position.set(-.54,.08,2.04); world.add(doorPivot);
+const doorMesh=box(1.08,1.92,.16,palette.wood,new THREE.Vector3(.54,.96,0),doorPivot); doorMesh.userData.isDoor=true;
+box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,.56,.095),doorPivot);
+mesh(new THREE.SphereGeometry(.085,12,10),mat(0xf6ca4d),new THREE.Vector3(.88,.97,.12),doorPivot);
+let doorOpen=false, doorTargetRotation=0;
+const OPEN_DOOR_ANGLE=-Math.PI*.47;
 box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09));
 box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09));
 for (const x of [-1.66,1.66]) { box(.12,1.62,.12,palette.cream,new THREE.Vector3(x,2.22,2.18)); box(1.68,.12,.12,palette.cream,new THREE.Vector3(x,2.22,2.18)); box(1.82,.15,.15,palette.roof,new THREE.Vector3(x,3.05,2.17)); }
@@ -198,7 +213,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.04);
 const dragPoint = new THREE.Vector3();
-let dragging=false, draggingDecoration=null, dragStartX=0, dragStartY=0, decorationMoved=false, lastX=0, desiredRotation=-.5, userHasDragged=false;
+let dragging=false, draggingDecoration=null, dragStartX=0, dragStartY=0, decorationMoved=false, doorPressed=false, doorStartX=0, doorStartY=0, lastX=0, desiredRotation=-.5, userHasDragged=false;
 function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }
 function showDecorTooltip(decoration, x, y){
   decorTooltip.querySelector('p').textContent=decoration.userData.memoryText;
@@ -217,6 +232,19 @@ function getDecorationAtEvent(event){
   while(decoration && !decoration.userData.memoryText) decoration=decoration.parent;
   return decoration||null;
 }
+function getDoorAtEvent(event){
+  const rect=canvas.getBoundingClientRect();
+  pointer.x=((event.clientX-rect.left)/rect.width)*2-1;
+  pointer.y=-((event.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  return raycaster.intersectObject(doorPivot,true).length>0;
+}
+function toggleDoor(){
+  doorOpen=!doorOpen;
+  doorTargetRotation=doorOpen?OPEN_DOOR_ANGLE:0;
+  warmInterior.visible=doorOpen;
+  interiorLight.intensity=doorOpen?2.2:0;
+}
 function moveDecoration(event,decoration){
   const rect = canvas.getBoundingClientRect();
   pointer.x = ((event.clientX-rect.left)/rect.width)*2-1;
@@ -231,16 +259,17 @@ function moveDecoration(event,decoration){
 function checkDecorHover(event){
   if(dragging) return hideDecorTooltip();
   const rect = canvas.getBoundingClientRect();
+  if(getDoorAtEvent(event)){ hideDecorTooltip(); canvas.style.cursor='pointer'; return; }
   const decoration=getDecorationAtEvent(event);
   if(!decoration) return hideDecorTooltip();
   showDecorTooltip(decoration,event.clientX-rect.left,event.clientY-rect.top);
   canvas.style.cursor='pointer';
 }
-canvas.addEventListener('pointerdown',e=>{ const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; dragStartX=e.clientX; dragStartY=e.clientY; decorationMoved=false; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
-canvas.addEventListener('pointermove',e=>{ if(!dragging) return checkDecorHover(e); if(draggingDecoration){ if(Math.hypot(e.clientX-dragStartX,e.clientY-dragStartY)>6){ decorationMoved=true; moveDecoration(e,draggingDecoration); } return; } desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
-canvas.addEventListener('mousemove',e=>{ if(!dragging) checkDecorHover(e); });
-canvas.addEventListener('pointerup',e=>{ if(draggingDecoration){ const decoration=draggingDecoration; if(decorationMoved) saveDecorationPosition(decoration); else if(decoration.userData.type==='flower') changeFlowerColor(decoration); draggingDecoration=null; } dragging=false; checkDecorHover(e); });
-canvas.addEventListener('pointercancel',()=>{ if(draggingDecoration&&decorationMoved) saveDecorationPosition(draggingDecoration); draggingDecoration=null; dragging=false; hideDecorTooltip(); });
+canvas.addEventListener('pointerdown',e=>{ if(getDoorAtEvent(e)){ doorPressed=true; doorStartX=e.clientX; doorStartY=e.clientY; canvas.setPointerCapture(e.pointerId); return; } const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; dragStartX=e.clientX; dragStartY=e.clientY; decorationMoved=false; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
+canvas.addEventListener('pointermove',e=>{ if(doorPressed) return; if(!dragging) return checkDecorHover(e); if(draggingDecoration){ if(Math.hypot(e.clientX-dragStartX,e.clientY-dragStartY)>6){ decorationMoved=true; moveDecoration(e,draggingDecoration); } return; } desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
+canvas.addEventListener('mousemove',e=>{ if(!dragging&&!doorPressed) checkDecorHover(e); });
+canvas.addEventListener('pointerup',e=>{ if(doorPressed){ if(Math.hypot(e.clientX-doorStartX,e.clientY-doorStartY)<8) toggleDoor(); doorPressed=false; checkDecorHover(e); return; } if(draggingDecoration){ const decoration=draggingDecoration; if(decorationMoved) saveDecorationPosition(decoration); else if(decoration.userData.type==='flower') changeFlowerColor(decoration); draggingDecoration=null; } dragging=false; checkDecorHover(e); });
+canvas.addEventListener('pointercancel',()=>{ doorPressed=false; if(draggingDecoration&&decorationMoved) saveDecorationPosition(draggingDecoration); draggingDecoration=null; dragging=false; hideDecorTooltip(); });
 canvas.addEventListener('pointerleave',hideDecorTooltip);
 
 function resize(){ const w=canvas.clientWidth,h=canvas.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
@@ -265,7 +294,7 @@ function updateHouseName(){
   houseNameEditor.style.left=`${(nameplatePosition.x*.5+.5)*canvas.clientWidth}px`;
   houseNameEditor.style.top=`${(-nameplatePosition.y*.5+.5)*canvas.clientHeight}px`;
 }
-function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=-.5+Math.sin(time*.00022)*.17; world.rotation.y += (desiredRotation-world.rotation.y)*.055; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
+function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=-.5+Math.sin(time*.00022)*.17; world.rotation.y += (desiredRotation-world.rotation.y)*.055; doorPivot.rotation.y += (doorTargetRotation-doorPivot.rotation.y)*.14; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 function formatMemoryTimestamp(value){

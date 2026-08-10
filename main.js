@@ -30,11 +30,24 @@ const closeCaptureButton = document.querySelector('#close-capture');
 const capturedHomeImage = document.querySelector('#captured-home-image');
 const saveCapturedImageButton = document.querySelector('#save-captured-image');
 const shareCapturedImageButton = document.querySelector('#share-captured-image');
+const decorOptions = document.querySelector('#decor-options');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 let selectedDecor = 'flower';
+const DECOR_OPTIONS = [
+  ['flower','✿','꽃 화분'],['lamp','☀','작은 조명'],['book','▤','책 더미'],['flag','⚑','응원 깃발'],['tree','♟','작은 나무'],['bench','▰','나무 벤치'],
+  ['fountain','⛲','분수'],['birdhouse','⌂','새집'],['mailbox','✉','우편함'],['fence','▥','울타리'],['swing','♧','그네'],['bicycle','◎','자전거'],
+  ['stone','●','정원 돌'],['mushroom','♣','버섯'],['birdbath','◉','새 목욕탕'],['lantern','◈','랜턴'],['leafplant','☘','잎 화분'],['watering','♒','물뿌리개'],
+  ['flowerbed','✽','꽃밭'],['sunflower','✺','해바라기'],['gnome','♟','정원 요정'],['basket','▱','피크닉 바구니'],['hammock','⌒','해먹'],['arch','∩','정원 아치'],
+  ['chime','♬','바람 종'],['pumpkin','●','호박'],['cat','⌁','고양이'],['dog','♧','강아지'],['stepping','◌','디딤돌'],['topiary','✦','토피어리']
+];
+const DECOR_INFO = Object.fromEntries(DECOR_OPTIONS.map(([type,icon,label])=>[type,{icon,label}]));
+function renderDecorOptions(){
+  decorOptions.innerHTML=DECOR_OPTIONS.map(([type,icon,label])=>`<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><span>${icon}</span>${label}</button>`).join('');
+}
+renderDecorOptions();
 let memories = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let streakStartDate = localStorage.getItem(STREAK_START_KEY) || '';
 let decorLayout = JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
@@ -145,13 +158,6 @@ nameplate.visible = true;
 // chimney
 box(.72,1.45,.72,palette.wood,new THREE.Vector3(1.58,4.7,-.65)); box(.9,.16,.9,palette.cream,new THREE.Vector3(1.58,5.42,-.65));
 
-// mailbox
-box(.12,1.1,.12,palette.wood,new THREE.Vector3(3.6,.7,2.2));
-const mail=mesh(new THREE.CylinderGeometry(.35,.35,.65,18,1,false,0,Math.PI),mat(0x5f9ab3),new THREE.Vector3(3.6,1.22,2.2)); mail.rotation.z=Math.PI/2;
-// fence
-for(let x=-4.7;x<-2.2;x+=.5){ box(.10,.72,.10,palette.cream,new THREE.Vector3(x,.44,2.9)); }
-box(2.62,.09,.10,palette.cream,new THREE.Vector3(-3.45,.65,2.9));
-
 const placed = new THREE.Group(); world.add(placed);
 houseNameText.textContent = `${houseName}네 집`;
 const slots = [ [-2.65,.04,1.75], [2.3,.04,1.42], [-3.05,.04,-.2], [3.15,.04,.15], [-1.7,.04,3.2], [1.72,.04,3.28], [-3.75,.04,1.0], [3.8,.04,2.1] ];
@@ -219,6 +225,31 @@ function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 �
   if(type==='book') { box(.55,.16,.38,0x74a7a0,new THREE.Vector3(0,.1,0),g); box(.48,.16,.36,0xf1b640,new THREE.Vector3(.03,.26,.01),g); box(.43,.16,.34,0xe47758,new THREE.Vector3(-.02,.42,-.01),g); }
   if(type==='flag') { cylinder(.045,.055,1.05,palette.wood,new THREE.Vector3(0,.53,0),g); const flag=mesh(new THREE.PlaneGeometry(.54,.34),mat(0xf08368),new THREE.Vector3(.3,.84,0),g); flag.rotation.y=Math.PI/18; }
   if(type==='tree') { cylinder(.12,.17,.78,palette.wood,new THREE.Vector3(0,.39,0),g); sphere(.42,palette.leaf,new THREE.Vector3(0,.92,0),g); sphere(.31,0x6b975b,new THREE.Vector3(.25,.78,.06),g); sphere(.29,0x6b975b,new THREE.Vector3(-.25,.82,.06),g); }
+  if(type==='bench') { box(.82,.13,.25,0xa66b43,new THREE.Vector3(0,.49,0),g); box(.82,.12,.12,0xa66b43,new THREE.Vector3(0,.72,-.1),g); for(const x of [-.31,.31]) box(.10,.48,.10,palette.wood,new THREE.Vector3(x,.24,0),g); }
+  if(type==='fountain') { cylinder(.38,.48,.14,0x8eb9c3,new THREE.Vector3(0,.07,0),g); cylinder(.17,.23,.27,0x79afbc,new THREE.Vector3(0,.25,0),g); sphere(.12,0xeaf7fa,new THREE.Vector3(0,.49,0),g); }
+  if(type==='birdhouse') { cylinder(.05,.07,.75,palette.wood,new THREE.Vector3(0,.38,0),g); box(.36,.32,.28,0x79a8ba,new THREE.Vector3(0,.84,0),g); const roof=mesh(new THREE.ConeGeometry(.32,.22,4),mat(0xeb7651),new THREE.Vector3(0,1.11,0),g); roof.rotation.y=Math.PI/4; sphere(.05,palette.dark,new THREE.Vector3(0,.84,.15),g); }
+  if(type==='mailbox') { box(.11,.74,.11,palette.wood,new THREE.Vector3(0,.37,0),g); const mailbox=mesh(new THREE.CylinderGeometry(.22,.22,.48,16,1,false,0,Math.PI),mat(0x5f9ab3),new THREE.Vector3(0,.75,0),g); mailbox.rotation.z=Math.PI/2; }
+  if(type==='fence') { for(const x of [-.32,0,.32]) box(.08,.52,.08,palette.cream,new THREE.Vector3(x,.26,0),g); box(.8,.07,.07,palette.cream,new THREE.Vector3(0,.18,0),g); box(.8,.07,.07,palette.cream,new THREE.Vector3(0,.4,0),g); }
+  if(type==='swing') { for(const x of [-.3,.3]) { const post=box(.06,.98,.06,palette.wood,new THREE.Vector3(x,.49,0),g); post.rotation.z=x<0?.18:-.18; } box(.72,.06,.06,palette.wood,new THREE.Vector3(0,.96,0),g); for(const x of [-.13,.13]) cylinder(.012,.012,.45,0xe7d9bd,new THREE.Vector3(x,.57,0),g); box(.38,.07,.18,0xe98759,new THREE.Vector3(0,.35,0),g); }
+  if(type==='bicycle') { for(const x of [-.25,.25]) { const wheel=mesh(new THREE.TorusGeometry(.18,.025,8,16),mat(0x4c5960),new THREE.Vector3(x,.2,0),g); wheel.rotation.y=Math.PI/2; } const frame=box(.46,.05,.05,0xe66f52,new THREE.Vector3(0,.34,0),g); frame.rotation.z=-.38; box(.06,.36,.05,0xe66f52,new THREE.Vector3(.18,.43,0),g); box(.22,.05,.05,palette.dark,new THREE.Vector3(.17,.61,0),g); }
+  if(type==='stone') { for(const [x,z,s] of [[-.2,-.05,.22],[.14,.05,.28],[.02,.2,.18]]) { const rock=sphere(s,0xb9b2a1,new THREE.Vector3(x,.06,z),g); rock.scale.y=.35; } }
+  if(type==='mushroom') { cylinder(.09,.12,.32,0xffe6c5,new THREE.Vector3(0,.16,0),g); const cap=sphere(.27,0xe77c5c,new THREE.Vector3(0,.37,0),g); cap.scale.y=.55; sphere(.035,0xfff6df,new THREE.Vector3(-.1,.44,.17),g); sphere(.03,0xfff6df,new THREE.Vector3(.12,.45,.14),g); }
+  if(type==='birdbath') { cylinder(.06,.1,.48,0x879aa1,new THREE.Vector3(0,.24,0),g); const bath=mesh(new THREE.CylinderGeometry(.3,.21,.10,20),mat(0x9ebec4),new THREE.Vector3(0,.51,0),g); bath.scale.y=.55; sphere(.04,0x5f7f95,new THREE.Vector3(.08,.55,0),g); }
+  if(type==='lantern') { box(.18,.42,.18,0x7b5a3f,new THREE.Vector3(0,.28,0),g); sphere(.09,0xffe797,new THREE.Vector3(0,.3,.1),g); const cap=mesh(new THREE.ConeGeometry(.17,.16,4),mat(palette.dark),new THREE.Vector3(0,.57,0),g); cap.rotation.y=Math.PI/4; }
+  if(type==='leafplant') { cylinder(.22,.28,.35,palette.pot,new THREE.Vector3(0,.18,0),g); for(let i=0;i<5;i++){ const leaf=sphere(.18,0x5e9b68,new THREE.Vector3(Math.cos(i*1.26)*.17,.52,Math.sin(i*1.26)*.17),g); leaf.scale.set(.65,1.45,.65); } }
+  if(type==='watering') { const can=cylinder(.18,.18,.32,0x79a9b3,new THREE.Vector3(0,.23,0),g); can.rotation.z=Math.PI/2; const spout=box(.38,.07,.07,0x79a9b3,new THREE.Vector3(.27,.28,0),g); spout.rotation.z=.22; const handle=mesh(new THREE.TorusGeometry(.14,.03,8,16,Math.PI),mat(0x79a9b3),new THREE.Vector3(-.08,.39,0),g); handle.rotation.y=Math.PI/2; }
+  if(type==='flowerbed') { box(.72,.16,.48,0x8a5a3f,new THREE.Vector3(0,.08,0),g); for(const x of [-.22,0,.22]) { cylinder(.018,.025,.36,0x537b50,new THREE.Vector3(x,.28,0),g); sphere(.11,x===0?0xf3bb43:0xed8194,new THREE.Vector3(x,.49,0),g); } }
+  if(type==='sunflower') { cylinder(.035,.05,.75,0x55763d,new THREE.Vector3(0,.38,0),g); for(let i=0;i<8;i++){ const a=i*Math.PI/4; const petal=sphere(.11,0xffd24d,new THREE.Vector3(Math.cos(a)*.16,.82,Math.sin(a)*.16),g); petal.scale.y=.55; } sphere(.11,0x70462f,new THREE.Vector3(0,.82,0),g); }
+  if(type==='gnome') { mesh(new THREE.ConeGeometry(.22,.48,16),mat(0x4d8fb0),new THREE.Vector3(0,.24,0),g); sphere(.13,0xffd1ad,new THREE.Vector3(0,.54,0),g); mesh(new THREE.ConeGeometry(.17,.36,16),mat(0xe45f59),new THREE.Vector3(0,.78,0),g); }
+  if(type==='basket') { cylinder(.28,.23,.28,0xc78a4f,new THREE.Vector3(0,.14,0),g); const handle=mesh(new THREE.TorusGeometry(.21,.03,8,16,Math.PI),mat(0x9b663d),new THREE.Vector3(0,.38,0),g); handle.rotation.y=Math.PI/2; sphere(.1,0xf07e5a,new THREE.Vector3(-.1,.3,.05),g); sphere(.09,0xf1b640,new THREE.Vector3(.1,.31,.05),g); }
+  if(type==='hammock') { for(const x of [-.38,.38]) box(.06,.85,.06,palette.wood,new THREE.Vector3(x,.43,0),g); const bed=mesh(new THREE.PlaneGeometry(.68,.28),mat(0xe8967a),new THREE.Vector3(0,.45,0),g); bed.rotation.x=-Math.PI/2; }
+  if(type==='arch') { for(const x of [-.28,.28]) box(.08,.74,.08,0xf5edd2,new THREE.Vector3(x,.37,0),g); const arch=mesh(new THREE.TorusGeometry(.28,.045,8,20,Math.PI),mat(0xf5edd2),new THREE.Vector3(0,.72,0),g); arch.rotation.y=Math.PI; sphere(.09,0xf08b94,new THREE.Vector3(-.24,.7,.03),g); sphere(.09,0xf08b94,new THREE.Vector3(.24,.7,.03),g); }
+  if(type==='chime') { box(.42,.05,.08,palette.wood,new THREE.Vector3(0,.8,0),g); for(const x of [-.14,0,.14]) cylinder(.02,.02,.44,0xd6e1df,new THREE.Vector3(x,.56,0),g); cylinder(.025,.025,.84,palette.wood,new THREE.Vector3(0,.42,0),g); }
+  if(type==='pumpkin') { for(const x of [-.12,0,.12]) { const pumpkin=sphere(.2,0xf39b36,new THREE.Vector3(x,.19,0),g); pumpkin.scale.y=.8; } cylinder(.025,.03,.12,0x59804a,new THREE.Vector3(0,.42,0),g); }
+  if(type==='cat') { sphere(.2,0xe69c62,new THREE.Vector3(-.05,.2,0),g); sphere(.15,0xe69c62,new THREE.Vector3(.19,.25,0),g); for(const x of [.12,.26]) { const ear=mesh(new THREE.ConeGeometry(.07,.13,3),mat(0xe69c62),new THREE.Vector3(x,.42,0),g); ear.rotation.z=.1; } const tail=mesh(new THREE.TorusGeometry(.16,.025,8,16,Math.PI),mat(0xe69c62),new THREE.Vector3(-.22,.29,0),g); tail.rotation.y=-Math.PI/2; }
+  if(type==='dog') { sphere(.23,0xc78653,new THREE.Vector3(-.08,.23,0),g); sphere(.15,0xc78653,new THREE.Vector3(.22,.27,0),g); sphere(.07,0x795039,new THREE.Vector3(.28,.34,.11),g); const tail=mesh(new THREE.TorusGeometry(.14,.025,8,16,Math.PI),mat(0xc78653),new THREE.Vector3(-.28,.32,0),g); tail.rotation.y=Math.PI/2; }
+  if(type==='stepping') { for(const [x,z] of [[-.23,-.12],[.08,0],[.25,.15]]) { const step=sphere(.19,0xd8c99a,new THREE.Vector3(x,.05,z),g); step.scale.y=.24; } }
+  if(type==='topiary') { cylinder(.2,.27,.34,palette.pot,new THREE.Vector3(0,.17,0),g); cylinder(.06,.07,.36,palette.wood,new THREE.Vector3(0,.48,0),g); sphere(.28,0x54834f,new THREE.Vector3(0,.77,0),g); sphere(.18,0x6da05d,new THREE.Vector3(.16,.69,.03),g); }
   if(!savedPosition || savedPosition.x!==openPosition.x || savedPosition.z!==openPosition.z) saveDecorationPosition(g);
   if(animate) { g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=y+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=y; }; requestAnimationFrame(grow); }
 }
@@ -323,8 +354,9 @@ function homeImageFileName(){
 }
 function captureHomeImage(){
   renderer.render(scene,camera);
-  const snapshot=document.createElement('canvas'); snapshot.width=canvas.width; snapshot.height=canvas.height;
-  const context=snapshot.getContext('2d'); context.fillStyle='#f5cd58'; context.fillRect(0,0,snapshot.width,snapshot.height); context.drawImage(canvas,0,0);
+  const verticalMargin=Math.round(canvas.width*.12);
+  const snapshot=document.createElement('canvas'); snapshot.width=canvas.width; snapshot.height=canvas.height+verticalMargin*2;
+  const context=snapshot.getContext('2d'); context.fillStyle='#f5cd58'; context.fillRect(0,0,snapshot.width,snapshot.height); context.drawImage(canvas,0,verticalMargin);
   return new Promise((resolve,reject)=>snapshot.toBlob(blob=>blob?resolve(blob):reject(new Error('capture failed')),'image/png'));
 }
 function downloadHomeImage(blob,fileName){
@@ -392,7 +424,7 @@ function renderRecords(){
   const total = memories.length+2; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
   previewCount.textContent=`장식 ${String(total).padStart(2,'0')}개`;
   if(memories[0]) todayPreview.innerHTML=memories[0].text.replace(/(.{17})/g,'$1<br>');
-  const shown = memories.slice(0,3).map(m=>`<li><span class="memory-dot ${m.decor}"></span><div><b>${escapeHTML(m.text)}</b><small>${formatMemoryTimestamp(m.date)}</small></div></li>`).join('');
+  const shown = memories.slice(0,3).map(m=>`<li><span class="memory-dot ${m.decor}">${DECOR_INFO[m.decor]?.icon||'✦'}</span><div><b>${escapeHTML(m.text)}</b><small>${formatMemoryTimestamp(m.date)}</small></div></li>`).join('');
   if(shown) recentList.innerHTML=shown;
 }
 function escapeHTML(text){ const el=document.createElement('div');el.textContent=text;return el.innerHTML; }
@@ -477,7 +509,7 @@ document.querySelector('#open-entry').addEventListener('click',openModal);
 document.querySelector('#card-entry').addEventListener('click',openModal);
 document.querySelector('#close-entry').addEventListener('click',closeModal);
 modal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
-document.querySelectorAll('.decor-option').forEach(btn=>btn.addEventListener('click',()=>{ document.querySelector('.decor-option.selected').classList.remove('selected'); btn.classList.add('selected'); selectedDecor=btn.dataset.decor; }));
+decorOptions.addEventListener('click',event=>{ const button=event.target.closest('.decor-option'); if(!button) return; selectedDecor=button.dataset.decor; renderDecorOptions(); });
 document.querySelector('#save-memory').addEventListener('click',()=>{
   const text=input.value.trim();
   if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }

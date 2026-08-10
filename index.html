@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=2" />
   </head>
   <body>
     <main class="app-shell">
@@ -41,14 +41,10 @@
             <button id="house-name-button" type="button" aria-label="집 이름 바꾸기"><span id="house-name-text">우리네 집</span><i>✎</i></button>
             <input id="house-name-input" maxlength="8" aria-label="집 이름" placeholder="이름" autocomplete="off" />
           </div>
-          <div class="scene-actions">
-            <button class="scene-capture-button" id="open-home-capture" type="button" aria-label="사진찍기" data-tooltip="사진찍기">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5h3l1.1-2h6.8l1.1 2h3A1.5 1.5 0 0 1 21 9v8.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V9a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="12" cy="13" r="3.5"/></svg>
-            </button>
-          </div>
+          <button class="scene-capture-button fixed-capture-button" id="open-home-capture" type="button" aria-label="사진찍기" data-tooltip="사진찍기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5h3l1.1-2h6.8l1.1 2h3A1.5 1.5 0 0 1 21 9v8.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V9a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          </button>
           <div class="scene-hint"><span>↔</span> 문·꽃은 클릭, 장식은 끌어 놓기</div>
-          <div class="scene-label label-roof">햇살 지붕</div>
-          <div class="scene-label label-door">나의 현관</div>
         </div>
 
         <aside class="preview-card">
@@ -100,14 +96,8 @@
         <h2 id="entry-title">오늘, 무엇을<br /><em>잘 해냈나요?</em></h2>
         <label for="memory-input">잘한 일을 짧게 적어 주세요</label>
         <input id="memory-input" maxlength="42" placeholder="예: 산책을 하며 나에게 집중했다" autocomplete="off" />
-        <p class="choose-label">이 기억을 어떤 장식으로 남길까요?</p>
-        <div class="decor-options" id="decor-options">
-          <button class="decor-option selected" data-decor="flower"><span>✿</span> 꽃 화분</button>
-          <button class="decor-option" data-decor="lamp"><span>☀</span> 작은 조명</button>
-          <button class="decor-option" data-decor="book"><span>▤</span> 책 더미</button>
-          <button class="decor-option" data-decor="flag"><span>⚑</span> 응원 깃발</button>
-          <button class="decor-option" data-decor="tree"><span>♟</span> 작은 나무</button>
-        </div>
+        <p class="choose-label">이 기억을 어떤 장식으로 남길까요? <b>30가지</b></p>
+        <div class="decor-options" id="decor-options" aria-label="집과 정원 장식 고르기"></div>
         <button class="primary-button save-button" id="save-memory">이 장식을 집에 놓기 <span>→</span></button>
       </section>
     </div>
@@ -139,6 +129,6 @@
         <button class="primary-button save-button" id="save-start-date">이날부터 시작하기 <span>→</span></button>
       </section>
     </div>
-    <script type="module" src="./main.js?v=26"></script>
+    <script type="module" src="./main.js?v=30"></script>
   </body>
 </html>

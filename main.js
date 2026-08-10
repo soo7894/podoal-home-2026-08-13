@@ -10,6 +10,15 @@ const progressFill = document.querySelector('#progress-fill');
 const todayPreview = document.querySelector('#today-preview');
 const previewCount = document.querySelector('#preview-count');
 const toast = document.querySelector('#toast');
+const streakButton = document.querySelector('#streak-button');
+const streakNumber = document.querySelector('#streak-number');
+const streakCopy = document.querySelector('#streak-copy');
+const streakBackdrop = document.querySelector('#streak-backdrop');
+const startDateInput = document.querySelector('#start-date-input');
+const streakTitle = document.querySelector('#streak-title');
+const streakDescription = document.querySelector('#streak-description');
+const startDateNote = document.querySelector('#start-date-note');
+const saveStartDate = document.querySelector('#save-start-date');
 const decorTooltip = document.querySelector('#decor-tooltip');
 const houseNameEditor = document.querySelector('#house-name-editor');
 const houseNameButton = document.querySelector('#house-name-button');
@@ -17,8 +26,10 @@ const houseNameText = document.querySelector('#house-name-text');
 const houseNameInput = document.querySelector('#house-name-input');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
+const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 let selectedDecor = 'flower';
 let memories = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let streakStartDate = localStorage.getItem(STREAK_START_KEY) || '';
 let houseName = localStorage.getItem(HOUSE_NAME_KEY) || '우리';
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
@@ -198,6 +209,66 @@ function renderRecords(){
 }
 function escapeHTML(text){ const el=document.createElement('div');el.textContent=text;return el.innerHTML; }
 renderRecords();
+
+function localDateString(date = new Date()){
+  const offset = date.getTimezoneOffset()*60000;
+  return new Date(date.getTime()-offset).toISOString().slice(0,10);
+}
+function dateFromString(value){
+  const [year,month,day] = value.split('-').map(Number);
+  return new Date(year,month-1,day);
+}
+function streakDays(startDate){
+  const today = dateFromString(localDateString());
+  return Math.max(1,Math.floor((today-dateFromString(startDate))/86400000)+1);
+}
+function formatStartDate(value){
+  const date=dateFromString(value);
+  return `${date.getFullYear()}년 ${date.getMonth()+1}월 ${date.getDate()}일`;
+}
+function updateStreak(){
+  if(!streakStartDate){
+    streakNumber.textContent='시작일';
+    streakCopy.textContent='을 정해 주세요';
+    streakButton.classList.add('needs-setup');
+    streakButton.setAttribute('aria-label','따뜻하게 살기 시작한 날 정하기');
+    return;
+  }
+  const days=streakDays(streakStartDate);
+  streakNumber.textContent=days;
+  streakCopy.textContent='일째 따뜻하게 살고 있어요';
+  streakButton.classList.remove('needs-setup');
+  streakButton.setAttribute('aria-label',`${formatStartDate(streakStartDate)}부터 ${days}일째. 시작일 확인 또는 변경`);
+}
+function updateStartDateNote(){
+  if(!startDateInput.value){ startDateNote.textContent=''; return; }
+  startDateNote.textContent=`${formatStartDate(startDateInput.value)}부터 오늘로 ${streakDays(startDateInput.value)}일째예요.`;
+}
+function openStreakModal(){
+  const hasStart=Boolean(streakStartDate);
+  startDateInput.max=localDateString();
+  startDateInput.value=streakStartDate||localDateString();
+  streakTitle.innerHTML=hasStart?'언제부터<br /><em>시작했나요?</em>':'언제부터<br /><em>따뜻하게 살까요?</em>';
+  streakDescription.textContent=hasStart?'처음 시작한 날을 확인하거나 바꿀 수 있어요.':'따뜻하게 살기로 한 첫날을 기록해 보세요.';
+  saveStartDate.innerHTML=hasStart?'시작일 저장하기 <span>→</span>':'이날부터 시작하기 <span>→</span>';
+  updateStartDateNote();
+  streakBackdrop.classList.add('open');
+  streakBackdrop.setAttribute('aria-hidden','false');
+  setTimeout(()=>startDateInput.focus(),180);
+}
+function closeStreakModal(){ streakBackdrop.classList.remove('open'); streakBackdrop.setAttribute('aria-hidden','true'); }
+streakButton.addEventListener('click',openStreakModal);
+document.querySelector('#close-streak').addEventListener('click',closeStreakModal);
+streakBackdrop.addEventListener('click',event=>{ if(event.target===streakBackdrop) closeStreakModal(); });
+startDateInput.addEventListener('change',updateStartDateNote);
+saveStartDate.addEventListener('click',()=>{
+  if(!startDateInput.value){ startDateInput.focus(); return; }
+  streakStartDate=startDateInput.value;
+  localStorage.setItem(STREAK_START_KEY,streakStartDate);
+  updateStreak();
+  closeStreakModal();
+});
+updateStreak();
 
 function saveHouseName(){
   const nextName=houseNameInput.value.trim().replace(/네\s*집$/,'').trim();

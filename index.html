@@ -18,7 +18,9 @@
           <span>오늘의 집<small>MY LITTLE DAY</small></span>
         </a>
         <div class="topbar-right">
-          <span class="streak"><b id="streak-number">7</b>일째 따뜻하게 살고 있어요</span>
+    <button class="streak needs-setup" id="streak-button" type="button" aria-label="따뜻하게 살기 시작한 날 정하기">
+      <b id="streak-number">시작일</b><span id="streak-copy">을 정해 주세요</span><i aria-hidden="true">⌄</i>
+    </button>
           <button class="round-button sound-button" id="sound-button" aria-label="소리 켜기">♪</button>
           <button class="round-button menu-button" aria-label="메뉴 열기">☰</button>
         </div>
@@ -105,6 +107,18 @@
     </div>
 
     <div class="toast" id="toast" role="status"><span>✦</span><p><b>오늘의 장식이 놓였어요!</b>집이 조금 더 따뜻해졌습니다.</p></div>
-    <script type="module" src="./main.js?v=12"></script>
+    <div class="entry-backdrop streak-backdrop" id="streak-backdrop" aria-hidden="true">
+      <section class="streak-modal" role="dialog" aria-modal="true" aria-labelledby="streak-title">
+        <button class="close-modal" id="close-streak" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> WARM DAYS</p>
+        <h2 id="streak-title">언제부터<br /><em>시작했나요?</em></h2>
+        <p class="streak-description" id="streak-description">따뜻하게 살기로 한 첫날을 기록해 보세요.</p>
+        <label for="start-date-input">시작한 날</label>
+        <input id="start-date-input" type="date" />
+        <p class="start-date-note" id="start-date-note"></p>
+        <button class="primary-button save-button" id="save-start-date">이날부터 시작하기 <span>→</span></button>
+      </section>
+    </div>
+    <script type="module" src="./main.js?v=13"></script>
   </body>
 </html>

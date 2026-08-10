@@ -24,6 +24,8 @@ const houseNameEditor = document.querySelector('#house-name-editor');
 const houseNameButton = document.querySelector('#house-name-button');
 const houseNameText = document.querySelector('#house-name-text');
 const houseNameInput = document.querySelector('#house-name-input');
+const saveHomeImageButton = document.querySelector('#save-home-image');
+const shareHomeImageButton = document.querySelector('#share-home-image');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
@@ -34,7 +36,7 @@ let streakStartDate = localStorage.getItem(STREAK_START_KEY) || '';
 let decorLayout = JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = localStorage.getItem(HOUSE_NAME_KEY) || '우리';
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -309,6 +311,53 @@ function updateHouseName(){
 }
 function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=.44+Math.sin(time*.00022)*.08; world.rotation.y += (desiredRotation-world.rotation.y)*.055; doorPivot.rotation.y += (doorTargetRotation-doorPivot.rotation.y)*.14; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
+
+function homeImageFileName(){
+  const now=new Date();
+  const stamp=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('')+'-'+[String(now.getHours()).padStart(2,'0'),String(now.getMinutes()).padStart(2,'0')].join('');
+  return `my-little-home-${stamp}.png`;
+}
+function captureHomeImage(){
+  renderer.render(scene,camera);
+  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('capture failed')),'image/png'));
+}
+function downloadHomeImage(blob,fileName){
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a'); link.href=url; link.download=fileName; link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function showCaptureNotice(title,description){
+  const message=toast.querySelector('p');
+  toast.querySelector('span').textContent='✦';
+  message.replaceChildren();
+  const heading=document.createElement('b'); heading.textContent=title;
+  message.append(heading,document.createTextNode(description));
+  toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3200);
+}
+async function saveHomeImage(){
+  try {
+    const fileName=homeImageFileName();
+    downloadHomeImage(await captureHomeImage(),fileName);
+    showCaptureNotice('집 모습을 저장했어요!','다운로드한 PNG 파일을 확인해 보세요.');
+  } catch { showCaptureNotice('이미지를 만들지 못했어요.','잠시 후 다시 시도해 주세요.'); }
+}
+async function shareHomeImage(){
+  try {
+    const fileName=homeImageFileName();
+    const file=new File([await captureHomeImage()],fileName,{type:'image/png'});
+    if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+      await navigator.share({ title:'나의 오늘의 집', text:'오늘의 잘한 일로 꾸민 나의 작은 집이에요.', files:[file] });
+      showCaptureNotice('집 모습을 공유했어요!','따뜻한 오늘을 함께 나눴어요.');
+      return;
+    }
+    downloadHomeImage(file,fileName);
+    showCaptureNotice('공유용 이미지를 저장했어요!','이 기기에서는 저장한 파일로 공유할 수 있어요.');
+  } catch(error) {
+    if(error?.name!=='AbortError') showCaptureNotice('공유를 준비하지 못했어요.','잠시 후 다시 시도해 주세요.');
+  }
+}
+saveHomeImageButton.addEventListener('click',saveHomeImage);
+shareHomeImageButton.addEventListener('click',shareHomeImage);
 
 function formatMemoryTimestamp(value){
   const date=new Date(value);

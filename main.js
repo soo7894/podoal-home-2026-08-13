@@ -45,7 +45,8 @@ const camera = new THREE.PerspectiveCamera(38, 1, .1, 100);
 camera.position.set(8.5, 6.1, 10.5);
 const target = new THREE.Vector3(0, 1.45, 0);
 const world = new THREE.Group();
-world.rotation.y = -.5;
+// Keep the front facade in view so the open doorway can reveal the room depth.
+world.rotation.y = .44;
 scene.add(world);
 
 scene.add(new THREE.HemisphereLight(0xfff3c8, 0x56745c, 2.3));
@@ -68,7 +69,15 @@ base.rotation.z = .02;
 for (let i=0;i<6;i++) { const stone=mesh(new THREE.SphereGeometry(.54-(i%2)*.05,16,10),mat(palette.path),new THREE.Vector3(-.2+i*.22,.08,4.25-i*.73)); stone.scale.set(1.15,.22,.8); stone.rotation.y=i*.25; }
 
 // house body and roof
-const houseBody=box(5.25,3.25,4.45,palette.wall,new THREE.Vector3(0,1.63,-.25));
+const houseBody=new THREE.Group(); world.add(houseBody);
+// Build the walls as a shell so the doorway is a real opening, not a picture on the facade.
+box(5.25,3.25,.18,palette.wall,new THREE.Vector3(0,1.63,-2.38),houseBody);
+box(.18,3.25,4.45,palette.wall,new THREE.Vector3(-2.54,1.63,-.25),houseBody);
+box(.18,3.25,4.45,palette.wall,new THREE.Vector3(2.54,1.63,-.25),houseBody);
+box(5.25,.18,4.45,palette.wall,new THREE.Vector3(0,3.16,-.25),houseBody);
+box(2.08,3.25,.18,palette.wall,new THREE.Vector3(-1.58,1.63,1.88),houseBody);
+box(2.08,3.25,.18,palette.wall,new THREE.Vector3(1.58,1.63,1.88),houseBody);
+box(1.08,1.25,.18,palette.wall,new THREE.Vector3(0,2.63,1.88),houseBody);
 box(5.48,.30,4.68,palette.trim,new THREE.Vector3(0,.12,-.25));
 const roof = mesh(new THREE.ConeGeometry(3.95,2.55,4),mat(palette.roof),new THREE.Vector3(0,4.55,-.25)); roof.rotation.y=Math.PI/4;
 const roofCap = mesh(new THREE.CylinderGeometry(.22,.29,.52,20),mat(palette.wood),new THREE.Vector3(0,5.85,-.25));
@@ -78,15 +87,19 @@ for (let x=-1.72;x<2;x+=.68) { const stripe=box(.09,1.7,4.1,0xf7a17e,new THREE.V
 // front door and windows
 const frontFacade=new THREE.Group(); world.add(frontFacade);
 const warmInterior = new THREE.Group(); warmInterior.visible=false; world.add(warmInterior);
-const interiorCanvas=document.createElement('canvas'); interiorCanvas.width=256; interiorCanvas.height=384;
-const interiorContext=interiorCanvas.getContext('2d');
-const interiorGlow=interiorContext.createRadialGradient(134,146,8,134,146,218); interiorGlow.addColorStop(0,'#fff0b7'); interiorGlow.addColorStop(.5,'#c9784d'); interiorGlow.addColorStop(1,'#51332d'); interiorContext.fillStyle=interiorGlow; interiorContext.fillRect(0,0,256,384);
-interiorContext.fillStyle='#7c4938'; interiorContext.fillRect(24,38,92,112); interiorContext.fillStyle='#ffe19a'; interiorContext.fillRect(34,49,72,88); interiorContext.fillStyle='rgba(255,255,240,.65)'; interiorContext.fillRect(68,49,7,88); interiorContext.fillRect(34,91,72,7);
-interiorContext.fillStyle='#56372f'; interiorContext.fillRect(131,208,98,15); interiorContext.fillRect(145,223,11,70); interiorContext.fillRect(205,223,11,70); interiorContext.fillStyle='#f5be57'; interiorContext.fillRect(163,176,37,31); interiorContext.fillStyle='#fff2bb'; interiorContext.beginPath(); interiorContext.arc(181,166,18,0,Math.PI*2); interiorContext.fill();
-interiorContext.fillStyle='#bf6f56'; interiorContext.fillRect(36,288,183,58); interiorContext.fillStyle='#edb17a'; interiorContext.fillRect(47,299,161,34);
-const interiorTexture=new THREE.CanvasTexture(interiorCanvas); interiorTexture.colorSpace=THREE.SRGBColorSpace;
-const interiorPanel=mesh(new THREE.PlaneGeometry(.99,1.82),new THREE.MeshBasicMaterial({map:interiorTexture,side:THREE.DoubleSide}),new THREE.Vector3(0,1.04,2.035),warmInterior); interiorPanel.renderOrder=2;
-const interiorLight=new THREE.PointLight(0xffb347,0,4.5); interiorLight.position.set(0,1.15,2.3); world.add(interiorLight);
+// A small three-dimensional room sits behind the open doorway.
+const interiorFloor=box(1.03,.08,2.38,0x704838,new THREE.Vector3(0,.12,.67),warmInterior);
+const interiorBackWall=box(1.02,2.24,.09,0xc88362,new THREE.Vector3(0,1.17,-.52),warmInterior);
+const interiorRug=mesh(new THREE.CircleGeometry(.34,24),mat(0x7fa5a0),new THREE.Vector3(0,.17,.56),warmInterior); interiorRug.rotation.x=-Math.PI/2;
+const sofa=box(.72,.47,.28,0x6c8f89,new THREE.Vector3(-.05,.4,-.18),warmInterior);
+box(.78,.10,.34,0xb2d0be,new THREE.Vector3(-.05,.68,-.18),warmInterior);
+const table=box(.36,.28,.28,0x6f4739,new THREE.Vector3(.26,.34,.5),warmInterior);
+mesh(new THREE.CylinderGeometry(.15,.17,.06,16),mat(0xf3c45f),new THREE.Vector3(.26,.52,.5),warmInterior);
+const lampStand=cylinder(.025,.025,.54,0x705044,new THREE.Vector3(.34,.63,-.28),warmInterior);
+const lampShade=mesh(new THREE.ConeGeometry(.16,.22,16,1,true),mat(0xffdf81),new THREE.Vector3(.34,.99,-.28),warmInterior); lampShade.rotation.x=Math.PI;
+const picture=box(.38,.30,.035,0x8e5948,new THREE.Vector3(-.12,1.58,-.46),warmInterior);
+box(.28,.20,.02,0x9fc8ba,new THREE.Vector3(-.12,1.58,-.43),warmInterior);
+const interiorLight=new THREE.PointLight(0xffb347,0,3.3); interiorLight.position.set(.05,1.42,.32); warmInterior.add(interiorLight);
 const doorPivot=new THREE.Group(); doorPivot.position.set(-.54,.08,2.04); world.add(doorPivot);
 const doorMesh=box(1.08,1.92,.16,palette.wood,new THREE.Vector3(.54,.96,0),doorPivot); doorMesh.userData.isDoor=true;
 box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,.56,.095),doorPivot);
@@ -243,7 +256,7 @@ function toggleDoor(){
   doorOpen=!doorOpen;
   doorTargetRotation=doorOpen?OPEN_DOOR_ANGLE:0;
   warmInterior.visible=doorOpen;
-  interiorLight.intensity=doorOpen?2.2:0;
+  interiorLight.intensity=doorOpen?.9:0;
 }
 function moveDecoration(event,decoration){
   const rect = canvas.getBoundingClientRect();
@@ -294,7 +307,7 @@ function updateHouseName(){
   houseNameEditor.style.left=`${(nameplatePosition.x*.5+.5)*canvas.clientWidth}px`;
   houseNameEditor.style.top=`${(-nameplatePosition.y*.5+.5)*canvas.clientHeight}px`;
 }
-function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=-.5+Math.sin(time*.00022)*.17; world.rotation.y += (desiredRotation-world.rotation.y)*.055; doorPivot.rotation.y += (doorTargetRotation-doorPivot.rotation.y)*.14; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
+function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=.44+Math.sin(time*.00022)*.08; world.rotation.y += (desiredRotation-world.rotation.y)*.055; doorPivot.rotation.y += (doorTargetRotation-doorPivot.rotation.y)*.14; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 function formatMemoryTimestamp(value){

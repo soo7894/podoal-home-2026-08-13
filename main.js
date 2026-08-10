@@ -153,13 +153,22 @@ function keepDecorationSeparate(x,z,excludedDecoration=null){
 }
 const flowerColors = [0xf0a4ac,0xf18b75,0xeb7795,0xaf83ce,0xffb943,0x8fcf9a];
 function randomFlowerColor(){ return flowerColors[Math.floor(Math.random()*flowerColors.length)]; }
+function nextFlowerColor(currentColor){ const choices=flowerColors.filter(color=>color!==currentColor); return choices[Math.floor(Math.random()*choices.length)]; }
 function saveDecorationPosition(decoration){
-  decorLayout[decoration.userData.decorationId]={x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2))};
+  decorLayout[decoration.userData.decorationId]={...decorLayout[decoration.userData.decorationId],x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2))};
+  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+}
+function changeFlowerColor(decoration){
+  const nextColor=nextFlowerColor(decoration.userData.flowerColor);
+  decoration.userData.flowerColor=nextColor;
+  decoration.userData.petalMeshes.forEach(petal=>petal.material.color.setHex(nextColor));
+  decorLayout[decoration.userData.decorationId]={...decorLayout[decoration.userData.decorationId],x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2)),flowerColor:nextColor};
   localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
 }
 function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 장식',decorationId=`${type}-${index}`,flowerColor=null) {
   const g = new THREE.Group(); const [x,y,z]=slots[index%slots.length]; const savedPosition=decorLayout[decorationId]; const safePosition=keepOutsideHouse(savedPosition?.x??x,savedPosition?.z??z); const openPosition=keepDecorationSeparate(safePosition.x,safePosition.z); g.position.set(openPosition.x,y,openPosition.z); placed.add(g);
   g.userData.memoryText = memoryText;
+  g.userData.type = type;
   g.userData.decorationId = decorationId;
   g.userData.baseY = y;
   const hotspot = document.createElement('button');
@@ -171,7 +180,7 @@ function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 �
   hotspot.addEventListener('focus', () => showDecorTooltip(g, Number.parseFloat(hotspot.style.left), Number.parseFloat(hotspot.style.top)));
   hotspot.addEventListener('mouseleave', hideDecorTooltip);
   hotspot.addEventListener('blur', hideDecorTooltip);
-  if(type==='flower') { const petalColor=flowerColor||randomFlowerColor(); cylinder(.26,.34,.42,palette.pot,new THREE.Vector3(0,.21,0),g); for(let i=0;i<5;i++){ const a=i*Math.PI*2/5; sphere(.14,petalColor,new THREE.Vector3(Math.cos(a)*.18,.58,Math.sin(a)*.18),g); } sphere(.12,0xf3c743,new THREE.Vector3(0,.58,0),g); }
+  if(type==='flower') { const petalColor=savedPosition?.flowerColor??flowerColor??randomFlowerColor(); g.userData.flowerColor=petalColor; g.userData.petalMeshes=[]; cylinder(.26,.34,.42,palette.pot,new THREE.Vector3(0,.21,0),g); for(let i=0;i<5;i++){ const a=i*Math.PI*2/5; g.userData.petalMeshes.push(sphere(.14,petalColor,new THREE.Vector3(Math.cos(a)*.18,.58,Math.sin(a)*.18),g)); } sphere(.12,0xf3c743,new THREE.Vector3(0,.58,0),g); }
   if(type==='lamp') { cylinder(.06,.09,.78,palette.dark,new THREE.Vector3(0,.39,0),g); const shade=mesh(new THREE.ConeGeometry(.3,.42,18,1,true),mat(0xf5c64d),new THREE.Vector3(0,.86,0),g); shade.rotation.x=Math.PI; sphere(.11,0xfff4ad,new THREE.Vector3(0,.78,0),g); }
   if(type==='book') { box(.55,.16,.38,0x74a7a0,new THREE.Vector3(0,.1,0),g); box(.48,.16,.36,0xf1b640,new THREE.Vector3(.03,.26,.01),g); box(.43,.16,.34,0xe47758,new THREE.Vector3(-.02,.42,-.01),g); }
   if(type==='flag') { cylinder(.045,.055,1.05,palette.wood,new THREE.Vector3(0,.53,0),g); const flag=mesh(new THREE.PlaneGeometry(.54,.34),mat(0xf08368),new THREE.Vector3(.3,.84,0),g); flag.rotation.y=Math.PI/18; }
@@ -189,7 +198,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.04);
 const dragPoint = new THREE.Vector3();
-let dragging=false, draggingDecoration=null, lastX=0, desiredRotation=-.5, userHasDragged=false;
+let dragging=false, draggingDecoration=null, dragStartX=0, dragStartY=0, decorationMoved=false, lastX=0, desiredRotation=-.5, userHasDragged=false;
 function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }
 function showDecorTooltip(decoration, x, y){
   decorTooltip.querySelector('p').textContent=decoration.userData.memoryText;
@@ -227,11 +236,11 @@ function checkDecorHover(event){
   showDecorTooltip(decoration,event.clientX-rect.left,event.clientY-rect.top);
   canvas.style.cursor='pointer';
 }
-canvas.addEventListener('pointerdown',e=>{ const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
-canvas.addEventListener('pointermove',e=>{ if(!dragging) return checkDecorHover(e); if(draggingDecoration){ moveDecoration(e,draggingDecoration); return; } desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
+canvas.addEventListener('pointerdown',e=>{ const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; dragStartX=e.clientX; dragStartY=e.clientY; decorationMoved=false; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
+canvas.addEventListener('pointermove',e=>{ if(!dragging) return checkDecorHover(e); if(draggingDecoration){ if(Math.hypot(e.clientX-dragStartX,e.clientY-dragStartY)>6){ decorationMoved=true; moveDecoration(e,draggingDecoration); } return; } desiredRotation += (e.clientX-lastX)*.012; lastX=e.clientX; userHasDragged=true; });
 canvas.addEventListener('mousemove',e=>{ if(!dragging) checkDecorHover(e); });
-canvas.addEventListener('pointerup',e=>{ if(draggingDecoration){ saveDecorationPosition(draggingDecoration); draggingDecoration=null; } dragging=false; checkDecorHover(e); });
-canvas.addEventListener('pointercancel',()=>{ if(draggingDecoration){ saveDecorationPosition(draggingDecoration); draggingDecoration=null; } dragging=false; hideDecorTooltip(); });
+canvas.addEventListener('pointerup',e=>{ if(draggingDecoration){ const decoration=draggingDecoration; if(decorationMoved) saveDecorationPosition(decoration); else if(decoration.userData.type==='flower') changeFlowerColor(decoration); draggingDecoration=null; } dragging=false; checkDecorHover(e); });
+canvas.addEventListener('pointercancel',()=>{ if(draggingDecoration&&decorationMoved) saveDecorationPosition(draggingDecoration); draggingDecoration=null; dragging=false; hideDecorTooltip(); });
 canvas.addEventListener('pointerleave',hideDecorTooltip);
 
 function resize(){ const w=canvas.clientWidth,h=canvas.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }

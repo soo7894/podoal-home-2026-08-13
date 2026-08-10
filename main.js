@@ -111,8 +111,6 @@ nameplate.visible = true;
 // chimney
 box(.72,1.45,.72,palette.wood,new THREE.Vector3(1.58,4.7,-.65)); box(.9,.16,.9,palette.cream,new THREE.Vector3(1.58,5.42,-.65));
 
-function makeTree(x,z,scale=1) { const g=new THREE.Group(); g.position.set(x,.15,z); g.scale.setScalar(scale); world.add(g); cylinder(.17,.25,1.0,palette.wood,new THREE.Vector3(0,.5,0),g); sphere(.73,palette.leaf,new THREE.Vector3(0,1.4,0),g); sphere(.53,0x6b975b,new THREE.Vector3(.37,1.14,.12),g); sphere(.48,0x6b975b,new THREE.Vector3(-.35,1.23,.12),g); }
-makeTree(-4.15,-1.6,1.15); makeTree(3.98,-1.7,.75); makeTree(-4.3,2.25,.72);
 // mailbox
 box(.12,1.1,.12,palette.wood,new THREE.Vector3(3.6,.7,2.2));
 const mail=mesh(new THREE.CylinderGeometry(.35,.35,.65,18,1,false,0,Math.PI),mat(0x5f9ab3),new THREE.Vector3(3.6,1.22,2.2)); mail.rotation.z=Math.PI/2;
@@ -123,6 +121,20 @@ box(2.62,.09,.10,palette.cream,new THREE.Vector3(-3.45,.65,2.9));
 const placed = new THREE.Group(); world.add(placed);
 houseNameText.textContent = `${houseName}네 집`;
 const slots = [ [-2.65,.18,1.75], [2.3,.18,1.42], [-3.05,.18,-.2], [3.15,.18,.15], [-1.7,.18,3.2], [1.72,.18,3.28], [-3.75,.18,1.0], [3.8,.18,2.1] ];
+const houseZone = { minX:-3.12, maxX:3.12, minZ:-3.10, maxZ:2.58 };
+function keepOutsideHouse(x,z){
+  const safeX=THREE.MathUtils.clamp(x,-4.45,4.45);
+  const safeZ=THREE.MathUtils.clamp(z,-3.95,3.75);
+  if(safeX<=houseZone.minX || safeX>=houseZone.maxX || safeZ<=houseZone.minZ || safeZ>=houseZone.maxZ) return {x:safeX,z:safeZ};
+  const edges=[
+    {distance:safeX-houseZone.minX,x:houseZone.minX,z:safeZ},
+    {distance:houseZone.maxX-safeX,x:houseZone.maxX,z:safeZ},
+    {distance:safeZ-houseZone.minZ,x:safeX,z:houseZone.minZ},
+    {distance:houseZone.maxZ-safeZ,x:safeX,z:houseZone.maxZ}
+  ];
+  const nearest=edges.reduce((closest,edge)=>edge.distance<closest.distance?edge:closest);
+  return {x:nearest.x,z:nearest.z};
+}
 const flowerColors = [0xf0a4ac,0xf18b75,0xeb7795,0xaf83ce,0xffb943,0x8fcf9a];
 function randomFlowerColor(){ return flowerColors[Math.floor(Math.random()*flowerColors.length)]; }
 function saveDecorationPosition(decoration){
@@ -130,7 +142,7 @@ function saveDecorationPosition(decoration){
   localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
 }
 function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 장식',decorationId=`${type}-${index}`,flowerColor=null) {
-  const g = new THREE.Group(); const [x,y,z]=slots[index%slots.length]; const savedPosition=decorLayout[decorationId]; g.position.set(savedPosition?.x??x,y,savedPosition?.z??z); placed.add(g);
+  const g = new THREE.Group(); const [x,y,z]=slots[index%slots.length]; const savedPosition=decorLayout[decorationId]; const safePosition=keepOutsideHouse(savedPosition?.x??x,savedPosition?.z??z); g.position.set(safePosition.x,y,safePosition.z); placed.add(g);
   g.userData.memoryText = memoryText;
   g.userData.decorationId = decorationId;
   g.userData.baseY = y;
@@ -148,7 +160,7 @@ function addDecoration(type,index,animate=false,memoryText='나를 위한 첫 �
   if(type==='book') { box(.55,.16,.38,0x74a7a0,new THREE.Vector3(0,.1,0),g); box(.48,.16,.36,0xf1b640,new THREE.Vector3(.03,.26,.01),g); box(.43,.16,.34,0xe47758,new THREE.Vector3(-.02,.42,-.01),g); }
   if(type==='flag') { cylinder(.045,.055,1.05,palette.wood,new THREE.Vector3(0,.53,0),g); const flag=mesh(new THREE.PlaneGeometry(.54,.34),mat(0xf08368),new THREE.Vector3(.3,.84,0),g); flag.rotation.y=Math.PI/18; }
   if(type==='tree') { cylinder(.12,.17,.78,palette.wood,new THREE.Vector3(0,.39,0),g); sphere(.42,palette.leaf,new THREE.Vector3(0,.92,0),g); sphere(.31,0x6b975b,new THREE.Vector3(.25,.78,.06),g); sphere(.29,0x6b975b,new THREE.Vector3(-.25,.82,.06),g); }
-  if(!savedPosition) saveDecorationPosition(g);
+  if(!savedPosition || savedPosition.x!==safePosition.x || savedPosition.z!==safePosition.z) saveDecorationPosition(g);
   if(animate) { g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=y+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=y; }; requestAnimationFrame(grow); }
 }
 // a welcoming starter scene
@@ -187,7 +199,8 @@ function moveDecoration(event,decoration){
   raycaster.setFromCamera(pointer,camera);
   if(!raycaster.ray.intersectPlane(dragPlane,dragPoint)) return;
   placed.worldToLocal(dragPoint);
-  decoration.position.set(THREE.MathUtils.clamp(dragPoint.x,-4.25,4.25),decoration.userData.baseY,THREE.MathUtils.clamp(dragPoint.z,-3.75,3.65));
+  const safePosition=keepOutsideHouse(dragPoint.x,dragPoint.z);
+  decoration.position.set(safePosition.x,decoration.userData.baseY,safePosition.z);
 }
 function checkDecorHover(event){
   if(dragging) return hideDecorTooltip();

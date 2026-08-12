@@ -37,7 +37,6 @@ const weekSummary = document.querySelector('#week-summary');
 const managerEditor = document.querySelector('#manager-editor');
 const editMemoryText = document.querySelector('#edit-memory-text');
 const editMemoryDecor = document.querySelector('#edit-memory-decor');
-const importDataInput = document.querySelector('#import-data');
 const guideBackdrop = document.querySelector('#guide-backdrop');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
@@ -841,31 +840,6 @@ function deleteMemory(date){
   renderRecords();
   renderManager();
 }
-function exportData(){
-  const backup={version:1,exportedAt:new Date().toISOString(),memories,streakStartDate,houseName,decorLayout};
-  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement('a'); link.href=url; link.download=`my-little-day-backup-${localDateString()}.json`; link.click();
-  setTimeout(()=>URL.revokeObjectURL(url),0);
-}
-function importData(file){
-  if(!file) return;
-  const reader=new FileReader();
-  reader.addEventListener('load',()=>{
-    try {
-      const backup=JSON.parse(String(reader.result));
-      if(!Array.isArray(backup.memories)) throw new Error('invalid backup');
-      memories=backup.memories.filter(memory=>typeof memory?.text==='string'&&typeof memory?.decor==='string'&&typeof memory?.date==='string');
-      decorLayout=backup.decorLayout&&typeof backup.decorLayout==='object'?backup.decorLayout:{};
-      streakStartDate=typeof backup.streakStartDate==='string'?backup.streakStartDate:'';
-      houseName=typeof backup.houseName==='string'&&backup.houseName.trim()?backup.houseName.trim():houseName;
-      houseNameText.textContent=`${houseName}네 집`;
-      drawNameplate(); saveAllData(); rebuildDecorations(); renderRecords(); updateStreak(); renderManager();
-      alert('백업을 불러왔어요.');
-    } catch { alert('열 수 없는 백업 파일입니다.'); }
-  });
-  reader.readAsText(file);
-}
 
 function localDateString(date = new Date()){
   const offset = date.getTimezoneOffset()*60000;
@@ -967,9 +941,6 @@ managerList.addEventListener('click',event=>{
 });
 document.querySelector('#save-memory-edit').addEventListener('click',saveMemoryEdit);
 document.querySelector('#cancel-memory-edit').addEventListener('click',()=>{ editingMemoryDate=null; managerEditor.hidden=true; });
-document.querySelector('#export-data').addEventListener('click',exportData);
-document.querySelector('#import-data-button').addEventListener('click',()=>importDataInput.click());
-importDataInput.addEventListener('change',event=>{ importData(event.target.files?.[0]); event.target.value=''; });
 document.querySelector('#reset-layout').addEventListener('click',()=>{
   if(!confirm('모든 장식을 처음 위치로 되돌릴까요? 기록과 색상은 유지됩니다.')) return;
   decorLayout=Object.fromEntries(Object.entries(decorLayout).map(([id,position])=>[id,Object.fromEntries(Object.entries(position).filter(([key])=>key!=='x'&&key!=='z'))]));

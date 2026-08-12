@@ -25,6 +25,7 @@ const houseNameButton = document.querySelector('#house-name-button');
 const houseNameText = document.querySelector('#house-name-text');
 const houseNameInput = document.querySelector('#house-name-input');
 const openHomeCaptureButton = document.querySelector('#open-home-capture');
+const shareHomeLinkButton = document.querySelector('#share-home-link');
 const captureBackdrop = document.querySelector('#capture-backdrop');
 const closeCaptureButton = document.querySelector('#close-capture');
 const capturedHomeImage = document.querySelector('#captured-home-image');
@@ -42,6 +43,7 @@ const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
+const SHARE_HASH_PREFIX = '#my-little-home=';
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
 const DECOR_OPTIONS = [
@@ -101,10 +103,34 @@ function renderDecorOptions(){
   decorOptions.innerHTML=DECOR_CATEGORIES.map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(type=>{ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }).join('')}</div></section>`).join('');
 }
 renderDecorOptions();
-let memories = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-let streakStartDate = localStorage.getItem(STREAK_START_KEY) || '';
-let decorLayout = JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
-let houseName = localStorage.getItem(HOUSE_NAME_KEY) || '우리';
+function decodeSharedHome(){
+  const encoded=location.hash.startsWith(SHARE_HASH_PREFIX)?location.hash.slice(SHARE_HASH_PREFIX.length):'';
+  if(!encoded) return null;
+  try {
+    const padded=encoded.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((encoded.length+3)%4);
+    const binary=atob(padded);
+    const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
+    const data=JSON.parse(new TextDecoder().decode(bytes));
+    if(!Array.isArray(data.memories)||!data.decorLayout||typeof data.houseName!=='string') return null;
+    return data;
+  } catch { return null; }
+}
+function encodeSharedHome(data){
+  const bytes=new TextEncoder().encode(JSON.stringify(data));
+  let binary='';
+  bytes.forEach(byte=>{ binary+=String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+const sharedHome=decodeSharedHome();
+const isSharedHome=Boolean(sharedHome);
+const sharedView=sharedHome?.view||{};
+const sharedRotation=Number.isFinite(sharedView.rotation)?sharedView.rotation:.44;
+const sharedCameraHeight=Number.isFinite(sharedView.cameraHeight)?sharedView.cameraHeight:6.3;
+function persistLocal(key,value){ if(!isSharedHome) localStorage.setItem(key,value); }
+let memories = sharedHome?.memories ?? JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREAK_START_KEY) || '');
+let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
+let houseName = sharedHome?.houseName ?? (localStorage.getItem(HOUSE_NAME_KEY) || '우리');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -286,14 +312,14 @@ function randomFlowerColor(){ return flowerColors[Math.floor(Math.random()*flowe
 function nextFlowerColor(currentColor){ const choices=flowerColors.filter(color=>color!==currentColor); return choices[Math.floor(Math.random()*choices.length)]; }
 function saveDecorationPosition(decoration){
   decorLayout[decoration.userData.decorationId]={...decorLayout[decoration.userData.decorationId],x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2))};
-  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+  persistLocal(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
 }
 function changeFlowerColor(decoration){
   const nextColor=nextFlowerColor(decoration.userData.flowerColor);
   decoration.userData.flowerColor=nextColor;
   decoration.userData.petalMeshes.forEach(petal=>petal.material.color.setHex(nextColor));
   decorLayout[decoration.userData.decorationId]={...decorLayout[decoration.userData.decorationId],x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2)),flowerColor:nextColor};
-  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+  persistLocal(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
 }
 function bloomFlowerbedBud(decoration,bud,animate=true){
   if(!bud||bud.bloomed) return;
@@ -331,7 +357,7 @@ function bloomFlowerbedBud(decoration,bud,animate=true){
   const bloomedBuds=new Set(saved.bloomedBuds??[]);
   bloomedBuds.add(bud.index);
   decorLayout[decoration.userData.decorationId]={...saved,x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2)),bloomedBuds:[...bloomedBuds]};
-  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+  persistLocal(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
 }
 const ROOF_LIGHT_BOUNDS={minX:-1.05,maxX:1.05,minZ:.86,maxZ:1.62};
 const ROOF_LIGHT_GAP=.43;
@@ -397,7 +423,7 @@ function setRoofLightState(decoration,isOn){
 function toggleRoofLight(decoration){
   setRoofLightState(decoration,!decoration.userData.roofLightOn);
   decorLayout[decoration.userData.decorationId]={...decorLayout[decoration.userData.decorationId],x:Number(decoration.position.x.toFixed(2)),z:Number(decoration.position.z.toFixed(2)),roofLightOn:decoration.userData.roofLightOn};
-  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+  persistLocal(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
   showCaptureNotice(decoration.userData.roofLightOn?'지붕 조명을 켰어요':'지붕 조명을 껐어요',decoration.userData.roofLightOn?' 전구가 따뜻하게 반짝입니다.':' 전구 불빛이 꺼졌습니다.');
 }
 function toggleSmallLamp(decoration){
@@ -590,7 +616,7 @@ const pointer = new THREE.Vector2();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.04);
 const dragPoint = new THREE.Vector3();
 const decorationDragOffset = new THREE.Vector2();
-let dragging=false, draggingDecoration=null, clickedFlowerbedBud=null, dragStartX=0, dragStartY=0, decorationMoved=false, doorPressed=false, doorStartX=0, doorStartY=0, lastX=0, lastY=0, desiredRotation=.44, desiredCameraHeight=6.3, userHasDragged=false;
+let dragging=false, draggingDecoration=null, clickedFlowerbedBud=null, dragStartX=0, dragStartY=0, decorationMoved=false, doorPressed=false, doorStartX=0, doorStartY=0, lastX=0, lastY=0, desiredRotation=sharedRotation, desiredCameraHeight=sharedCameraHeight, userHasDragged=isSharedHome;
 function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }
 function showDecorTooltip(decoration, x, y){
   decorTooltip.querySelector('p').textContent=decoration.userData.memoryText;
@@ -669,7 +695,7 @@ function checkDecorHover(event){
   showDecorTooltip(decoration,event.clientX-rect.left,event.clientY-rect.top);
   canvas.style.cursor='pointer';
 }
-canvas.addEventListener('pointerdown',e=>{ if(getDoorAtEvent(e)){ doorPressed=true; doorStartX=e.clientX; doorStartY=e.clientY; canvas.setPointerCapture(e.pointerId); return; } const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; lastY=e.clientY; desiredRotation=world.rotation.y; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; clickedFlowerbedBud=decoration.userData.type==='flowerbed'?getFlowerbedBudAtEvent(e):null; const groundPoint=decoration.userData.isRoofDecoration?null:getGroundPointAtEvent(e); decorationDragOffset.set(groundPoint?decoration.position.x-groundPoint.x:0,groundPoint?decoration.position.z-groundPoint.z:0); dragStartX=e.clientX; dragStartY=e.clientY; decorationMoved=false; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
+canvas.addEventListener('pointerdown',e=>{ if(getDoorAtEvent(e)){ doorPressed=true; doorStartX=e.clientX; doorStartY=e.clientY; canvas.setPointerCapture(e.pointerId); return; } const decoration=getDecorationAtEvent(e); if(decoration&&isSharedHome){ showCaptureNotice('공유받은 집이에요','장식은 원래 모습 그대로 보기 전용으로 열려 있어요.'); return; } dragging=true; lastX=e.clientX; lastY=e.clientY; desiredRotation=world.rotation.y; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; clickedFlowerbedBud=decoration.userData.type==='flowerbed'?getFlowerbedBudAtEvent(e):null; const groundPoint=decoration.userData.isRoofDecoration?null:getGroundPointAtEvent(e); decorationDragOffset.set(groundPoint?decoration.position.x-groundPoint.x:0,groundPoint?decoration.position.z-groundPoint.z:0); dragStartX=e.clientX; dragStartY=e.clientY; decorationMoved=false; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
 canvas.addEventListener('pointermove',e=>{ if(doorPressed) return; if(!dragging) return checkDecorHover(e); if(draggingDecoration){ if(Math.hypot(e.clientX-dragStartX,e.clientY-dragStartY)>6){ decorationMoved=true; moveDecoration(e,draggingDecoration); } return; } desiredRotation=THREE.MathUtils.clamp(desiredRotation+(e.clientX-lastX)*.012,-Math.PI/2,Math.PI*.75); desiredCameraHeight=THREE.MathUtils.clamp(desiredCameraHeight+(lastY-e.clientY)*.012,5.45,7.45); lastX=e.clientX; lastY=e.clientY; userHasDragged=true; });
 canvas.addEventListener('mousemove',e=>{ if(!dragging&&!doorPressed) checkDecorHover(e); });
 canvas.addEventListener('pointerup',e=>{ if(doorPressed){ if(Math.hypot(e.clientX-doorStartX,e.clientY-doorStartY)<8) toggleDoor(); doorPressed=false; checkDecorHover(e); return; } if(draggingDecoration){ const decoration=draggingDecoration; if(decorationMoved) saveDecorationPosition(decoration); else if(decoration.userData.type==='flower') changeFlowerColor(decoration); else if(decoration.userData.type==='flowerbed') bloomFlowerbedBud(decoration,clickedFlowerbedBud); else if(decoration.userData.isRoofDecoration) toggleRoofLight(decoration); else if(decoration.userData.type==='lamp') toggleSmallLamp(decoration); else if(decoration.userData.type==='chime') nudgeChime(decoration); else if(decoration.userData.type==='swing') swingForwardBack(decoration); draggingDecoration=null; clickedFlowerbedBud=null; decorationDragOffset.set(0,0); } dragging=false; checkDecorHover(e); });
@@ -759,7 +785,40 @@ async function shareCapturedImage(){
     if(error?.name!=='AbortError') showCaptureNotice('공유를 준비하지 못했어요.','잠시 후 다시 시도해 주세요.');
   }
 }
+function currentSharedHomeUrl(){
+  const shareData={
+    version:1,
+    memories,
+    streakStartDate,
+    houseName,
+    decorLayout,
+    view:{rotation:world.rotation.y,cameraHeight:camera.position.y}
+  };
+  const baseUrl=(location.hostname==='127.0.0.1'||location.hostname==='localhost')
+    ? 'https://soo7894.github.io/podoal-home/'
+    : `${location.origin}${location.pathname}`;
+  return `${baseUrl}${SHARE_HASH_PREFIX}${encodeSharedHome(shareData)}`;
+}
+async function shareHomeLink(){
+  const url=currentSharedHomeUrl();
+  try {
+    if(navigator.share){
+      await navigator.share({title:'나의 오늘의 집',text:'오늘의 잘한 일로 꾸민 나의 작은 집이에요.',url});
+      showCaptureNotice('집 링크를 공유했어요!','친구가 같은 배치와 각도로 집을 볼 수 있어요.');
+      return;
+    }
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(url);
+      showCaptureNotice('집 링크를 복사했어요!','친구에게 붙여넣어 보내 보세요.');
+      return;
+    }
+    window.prompt('아래 링크를 복사해 친구에게 보내세요.',url);
+  } catch(error) {
+    if(error?.name!=='AbortError') window.prompt('아래 링크를 복사해 친구에게 보내세요.',url);
+  }
+}
 openHomeCaptureButton.addEventListener('click',openCapturePreview);
+shareHomeLinkButton.addEventListener('click',shareHomeLink);
 closeCaptureButton.addEventListener('click',closeCapturePreview);
 captureBackdrop.addEventListener('click',event=>{ if(event.target===captureBackdrop) closeCapturePreview(); });
 saveCapturedImageButton.addEventListener('click',saveCapturedImage);
@@ -802,13 +861,13 @@ function renderWeekSummary(){
 }
 function renderManager(){
   renderWeekSummary();
-  managerList.innerHTML=memories.length?memories.map(memory=>`<article class="manager-item"><div><b>${escapeHTML(memory.text)}</b><small>${formatMemoryTimestamp(memory.date)}</small></div><div class="manager-item-actions"><button type="button" data-edit-memory="${memory.date}">수정</button><button class="delete-memory" type="button" data-delete-memory="${memory.date}">삭제</button></div></article>`).join(''):'<p class="manager-empty">아직 기록한 잘한 일이 없어요.</p>';
+  managerList.innerHTML=memories.length?memories.map(memory=>`<article class="manager-item"><div><b>${escapeHTML(memory.text)}</b><small>${formatMemoryTimestamp(memory.date)}</small></div>${isSharedHome?'':`<div class="manager-item-actions"><button type="button" data-edit-memory="${memory.date}">수정</button><button class="delete-memory" type="button" data-delete-memory="${memory.date}">삭제</button></div>`}</article>`).join(''):'<p class="manager-empty">아직 기록한 잘한 일이 없어요.</p>';
 }
 function saveAllData(){
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(memories));
-  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
-  localStorage.setItem(STREAK_START_KEY,streakStartDate);
-  localStorage.setItem(HOUSE_NAME_KEY,houseName);
+  persistLocal(STORAGE_KEY,JSON.stringify(memories));
+  persistLocal(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+  persistLocal(STREAK_START_KEY,streakStartDate);
+  persistLocal(HOUSE_NAME_KEY,houseName);
 }
 function openManager(){
   editingMemoryDate=null;
@@ -886,6 +945,7 @@ function updateStartDateNote(){
   startDateNote.textContent=`${formatStartDate(startDateInput.value)}부터 오늘로 ${streakDays(startDateInput.value)}일째예요.`;
 }
 function openStreakModal(){
+  if(isSharedHome){ showCaptureNotice('공유받은 집이에요','기록 시작일은 원래 모습 그대로 보기 전용으로 열려 있어요.'); return; }
   const hasStart=Boolean(streakStartDate);
   startDateInput.max=localDateString();
   startDateInput.value=streakStartDate||localDateString();
@@ -905,26 +965,27 @@ startDateInput.addEventListener('change',updateStartDateNote);
 saveStartDate.addEventListener('click',()=>{
   if(!startDateInput.value){ startDateInput.focus(); return; }
   streakStartDate=startDateInput.value;
-  localStorage.setItem(STREAK_START_KEY,streakStartDate);
+  persistLocal(STREAK_START_KEY,streakStartDate);
   updateStreak();
   closeStreakModal();
 });
 updateStreak();
 
 function saveHouseName(){
+  if(isSharedHome) return;
   const nextName=houseNameInput.value.trim().replace(/네\s*집$/,'').trim();
   if(nextName) houseName=nextName;
   houseNameText.textContent=`${houseName}네 집`;
   houseNameInput.value=houseName;
-  localStorage.setItem(HOUSE_NAME_KEY,houseName);
+  persistLocal(HOUSE_NAME_KEY,houseName);
   drawNameplate();
   houseNameEditor.classList.remove('editing');
 }
-houseNameButton.addEventListener('click',()=>{ houseNameInput.value=houseName; houseNameEditor.classList.add('editing'); houseNameInput.focus(); houseNameInput.select(); });
+houseNameButton.addEventListener('click',()=>{ if(isSharedHome){ showCaptureNotice('공유받은 집이에요','집 이름은 원래 모습 그대로 보기 전용으로 열려 있어요.'); return; } houseNameInput.value=houseName; houseNameEditor.classList.add('editing'); houseNameInput.focus(); houseNameInput.select(); });
 houseNameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') saveHouseName(); if(e.key==='Escape') houseNameEditor.classList.remove('editing'); });
 houseNameInput.addEventListener('blur',saveHouseName);
 
-function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(),180); }
+function openModal(){ if(isSharedHome){ showCaptureNotice('공유받은 집이에요','기록과 장식은 원래 모습 그대로 보기 전용으로 열려 있어요.'); return; } modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(),180); }
 function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
 document.querySelector('#open-entry').addEventListener('click',openModal);
 document.querySelector('#card-entry').addEventListener('click',openModal);
@@ -935,7 +996,7 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
   const text=input.value.trim();
   if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }
   const flowerColor=selectedDecor==='flower'?randomFlowerColor():null;
-  const memory={text,decor:selectedDecor,date:new Date().toISOString(),flowerColor}; memories.unshift(memory); localStorage.setItem(STORAGE_KEY,JSON.stringify(memories)); addDecoration(selectedDecor,memories.length+1,true,text,`memory-${memory.date}`,flowerColor); renderRecords(); input.value=''; closeModal(); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3600);
+  const memory={text,decor:selectedDecor,date:new Date().toISOString(),flowerColor}; memories.unshift(memory); persistLocal(STORAGE_KEY,JSON.stringify(memories)); addDecoration(selectedDecor,memories.length+1,true,text,`memory-${memory.date}`,flowerColor); renderRecords(); input.value=''; closeModal(); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3600);
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
 document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });
@@ -953,7 +1014,7 @@ document.querySelector('#save-memory-edit').addEventListener('click',saveMemoryE
 document.querySelector('#cancel-memory-edit').addEventListener('click',()=>{ editingMemoryDate=null; managerEditor.hidden=true; });
 
 function openGuide(){ guideBackdrop.classList.add('open'); guideBackdrop.setAttribute('aria-hidden','false'); }
-function closeGuide(){ guideBackdrop.classList.remove('open'); guideBackdrop.setAttribute('aria-hidden','true'); localStorage.setItem(GUIDE_SEEN_KEY,'true'); }
+function closeGuide(){ guideBackdrop.classList.remove('open'); guideBackdrop.setAttribute('aria-hidden','true'); persistLocal(GUIDE_SEEN_KEY,'true'); }
 document.querySelector('#open-guide').addEventListener('click',openGuide);
 document.querySelector('#close-guide').addEventListener('click',closeGuide);
 document.querySelector('#finish-guide').addEventListener('click',closeGuide);

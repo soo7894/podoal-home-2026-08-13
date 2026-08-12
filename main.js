@@ -1,7 +1,8 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js';
 
 const canvas = document.querySelector('#house-canvas');
 const sceneWrap = document.querySelector('.scene-wrap');
+const sceneLoader = document.querySelector('#scene-loader');
 const modal = document.querySelector('#entry-backdrop');
 const input = document.querySelector('#memory-input');
 const recentList = document.querySelector('#recent-list');
@@ -780,7 +781,8 @@ function updateHouseName(){
   houseNameEditor.style.left=`${(nameplatePosition.x*.5+.5)*canvas.clientWidth}px`;
   houseNameEditor.style.top=`${(-nameplatePosition.y*.5+.5)*canvas.clientHeight}px`;
 }
-function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=.44+Math.sin(time*.00022)*.08; world.rotation.y += (desiredRotation-world.rotation.y)*.055; camera.position.y+=(desiredCameraHeight-camera.position.y)*.08; doorPivot.rotation.y += (doorTargetRotation-doorPivot.rotation.y)*.14; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); requestAnimationFrame(frame); }
+let sceneHasRendered=false;
+function frame(time){ resize(); if(!dragging&&!userHasDragged) desiredRotation=.44+Math.sin(time*.00022)*.08; world.rotation.y += (desiredRotation-world.rotation.y)*.055; camera.position.y+=(desiredCameraHeight-camera.position.y)*.08; doorPivot.rotation.y += (doorTargetRotation-doorPivot.rotation.y)*.14; camera.lookAt(target); updateDecorHotspots(); updateHouseName(); renderer.render(scene,camera); if(!sceneHasRendered){ sceneHasRendered=true; sceneLoader?.classList.add('ready'); } requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 function homeImageFileName(){

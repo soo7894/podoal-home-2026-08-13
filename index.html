@@ -7,8 +7,10 @@
     <title>오늘의 집 | 작은 성취를 모으는 곳</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=5" />
+    <link rel="stylesheet" href="./styles.css?v=6" />
   </head>
   <body>
     <main class="app-shell">
@@ -35,6 +37,11 @@
         </div>
 
         <div class="scene-wrap" aria-label="3D 장난감 집">
+          <div class="scene-loader" id="scene-loader" role="status" aria-live="polite">
+            <div class="loader-toy-house" aria-hidden="true"><i></i><b></b><em></em><span></span></div>
+            <strong>나의 작은 집을<br />열고 있어요</strong>
+            <p><i></i><i></i><i></i></p>
+          </div>
           <canvas id="house-canvas"></canvas>
           <div class="decor-tooltip" id="decor-tooltip" role="status" aria-live="polite"><span>잘한 일</span><p></p></div>
           <div class="house-name-editor" id="house-name-editor">
@@ -164,6 +171,6 @@
         <button class="primary-button save-button" id="finish-guide" type="button">시작하기 <span>→</span></button>
       </section>
     </div>
-    <script type="module" src="./main.js?v=90"></script>
+    <script type="module" src="./main.js?v=91"></script>
   </body>
 </html>

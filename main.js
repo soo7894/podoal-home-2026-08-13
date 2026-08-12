@@ -212,11 +212,17 @@ const roofGarland = new THREE.Group(); world.add(roofGarland);
 houseNameText.textContent = `${houseName}네 집`;
 const slots = [ [-2.65,.04,1.75], [2.3,.04,1.42], [-3.05,.04,-.2], [3.15,.04,.15], [-1.7,.04,3.2], [1.72,.04,3.28], [-3.75,.04,1.0], [3.8,.04,2.1] ];
 const houseZone = { minX:-2.82, maxX:2.82, minZ:-2.82, maxZ:2.28 };
+const TOP_LAWN_RADIUS = 5.28;
 const DECOR_FOOTPRINTS={flower:.42,lamp:.38,book:.44,flag:.36,tree:.68,bigtree:.98,bench:.6,fountain:.55,birdhouse:.4,mailbox:.44,fence:.56,swing:.74,bicycle:.56,stone:.44,mushroom:.4,birdbath:.44,lantern:.34,leafplant:.48,watering:.44,flowerbed:.58,sunflower:.44,gnome:.38,basket:.4,hammock:.72,arch:.58,chime:.38,pumpkin:.5,cat:.42,dog:.44,stepping:.46,topiary:.48};
 function decorFootprint(type){ return DECOR_FOOTPRINTS[type]??.5; }
+function keepInsideTopLawn(x,z,clearance=0){
+  const maxRadius=Math.max(.2,TOP_LAWN_RADIUS-clearance);
+  const distance=Math.hypot(x,z);
+  if(distance<=maxRadius) return {x,z};
+  return {x:x/distance*maxRadius,z:z/distance*maxRadius};
+}
 function keepOutsideHouse(x,z,clearance=.28){
-  const safeX=THREE.MathUtils.clamp(x,-4.9,4.9);
-  const safeZ=THREE.MathUtils.clamp(z,-4.3,4.1);
+  const {x:safeX,z:safeZ}=keepInsideTopLawn(x,z,clearance);
   const safeHouse={minX:houseZone.minX-clearance,maxX:houseZone.maxX+clearance,minZ:houseZone.minZ-clearance,maxZ:houseZone.maxZ+clearance};
   if(safeX<=safeHouse.minX || safeX>=safeHouse.maxX || safeZ<=safeHouse.minZ || safeZ>=safeHouse.maxZ) return {x:safeX,z:safeZ};
   const edges=[
@@ -226,7 +232,7 @@ function keepOutsideHouse(x,z,clearance=.28){
     {distance:safeHouse.maxZ-safeZ,x:safeX,z:safeHouse.maxZ}
   ];
   const nearest=edges.reduce((closest,edge)=>edge.distance<closest.distance?edge:closest);
-  return {x:nearest.x,z:nearest.z};
+  return keepInsideTopLawn(nearest.x,nearest.z,clearance);
 }
 const DECORATION_GAP = .18;
 function keepDecorationSeparate(x,z,excludedDecoration=null,type='flower'){
@@ -250,7 +256,7 @@ function keepDecorationSeparate(x,z,excludedDecoration=null,type='flower'){
 }
 function isDecorationPositionOpen(x,z,excludedDecoration,type){
   const radius=decorFootprint(type);
-  if(x<-4.9||x>4.9||z<-4.3||z>4.1) return false;
+  if(Math.hypot(x,z)>TOP_LAWN_RADIUS-radius-.08) return false;
   const houseSafe=keepOutsideHouse(x,z,radius+.08);
   if(Math.hypot(houseSafe.x-x,houseSafe.z-z)>.001) return false;
   return !placed.children.some(decoration=>{
@@ -261,7 +267,7 @@ function isDecorationPositionOpen(x,z,excludedDecoration,type){
 }
 function keepDragPosition(decoration,x,z){
   const type=decoration.userData.type;
-  const target={x:THREE.MathUtils.clamp(x,-4.9,4.9),z:THREE.MathUtils.clamp(z,-4.3,4.1)};
+  const target=keepInsideTopLawn(x,z,decorFootprint(type)+.08);
   if(isDecorationPositionOpen(target.x,target.z,decoration,type)) return target;
   const start={x:decoration.position.x,z:decoration.position.z};
   if(!isDecorationPositionOpen(start.x,start.z,decoration,type)) return keepDecorationSeparate(target.x,target.z,decoration,type);

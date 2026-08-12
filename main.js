@@ -45,7 +45,6 @@ const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const SHARE_HASH_PREFIX = '#my-little-home=';
-const SHORT_LINK_CACHE_KEY = 'my-little-day-short-link-cache-v2';
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
 const DECOR_OPTIONS = [
@@ -110,10 +109,11 @@ function decodeSharedHome(){
   const encoded=location.hash.startsWith(SHARE_HASH_PREFIX)?location.hash.slice(SHARE_HASH_PREFIX.length):'';
   if(!encoded) return null;
   try {
+    const unpacked=window.LZString?.decompressFromEncodedURIComponent(encoded);
     const padded=encoded.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((encoded.length+3)%4);
-    const binary=atob(padded);
-    const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
-    const data=JSON.parse(new TextDecoder().decode(bytes));
+    const binary=unpacked?null:atob(padded);
+    const bytes=binary?Uint8Array.from(binary,char=>char.charCodeAt(0)):null;
+    const data=JSON.parse(unpacked||new TextDecoder().decode(bytes));
     if(data.v===2) return unpackSharedHome(data);
     if(!Array.isArray(data.memories)||!data.decorLayout||typeof data.houseName!=='string') return null;
     return data;
@@ -173,6 +173,8 @@ function unpackSharedHome(data){
   return {memories,streakStartDate:data.s||'',houseName:data.n,decorLayout,view:{rotation:(data.w?.[0]??440)/1000,cameraHeight:(data.w?.[1]??630)/100}};
 }
 function encodeSharedHome(data){
+  const packed=window.LZString?.compressToEncodedURIComponent(JSON.stringify(data));
+  if(packed) return packed;
   const bytes=new TextEncoder().encode(JSON.stringify(data));
   let binary='';
   bytes.forEach(byte=>{ binary+=String.fromCharCode(byte); });
@@ -850,56 +852,8 @@ function currentSharedHomeUrl(){
     : `${location.origin}${location.pathname}`;
   return `${baseUrl}${SHARE_HASH_PREFIX}${encodeSharedHome(shareData)}`;
 }
-function readTinyUrlCache(){
-  try {
-    const saved=JSON.parse(localStorage.getItem(SHORT_LINK_CACHE_KEY)||'{}');
-    return saved&&typeof saved==='object'?saved:{};
-  } catch { return {}; }
-}
-function saveTinyUrlCache(cache){
-  const entries=Object.entries(cache).slice(-60);
-  localStorage.setItem(SHORT_LINK_CACHE_KEY,JSON.stringify(Object.fromEntries(entries)));
-}
-function createShortLink(longUrl){
-  return new Promise((resolve,reject)=>{
-    const callback=`homeShare${Date.now()}${Math.random().toString(36).slice(2)}`;
-    const script=document.createElement('script');
-    const timeout=setTimeout(()=>finish(new Error('short link timeout')),10000);
-    const finish=result=>{
-      clearTimeout(timeout);
-      script.remove();
-      delete window[callback];
-      result instanceof Error?reject(result):resolve(result);
-    };
-    window[callback]=data=>{
-      const url=data?.shorturl;
-      if(typeof url==='string'&&url.startsWith('https://is.gd/')) finish(url);
-      else finish(new Error(data?.errormessage||'short link failed'));
-    };
-    script.onerror=()=>finish(new Error('short link failed'));
-    script.src=`https://is.gd/create.php?format=json&callback=${callback}&url=${encodeURIComponent(longUrl)}`;
-    document.head.append(script);
-  });
-}
-async function shortenSharedHomeUrl(longUrl){
-  const cache=readTinyUrlCache();
-  if(cache[longUrl]) return cache[longUrl];
-  const shortUrl=await createShortLink(longUrl);
-  cache[longUrl]=shortUrl;
-  saveTinyUrlCache(cache);
-  return shortUrl;
-}
 async function shareHomeLink(){
-  const longUrl=currentSharedHomeUrl();
-  let url;
-  try {
-    showCaptureNotice('\uC9E7\uC740 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uACE0 \uC788\uC5B4\uC694.','\uAC19\uC740 \uC9D1 \uC0C1\uD0DC\uB294 \uC774\uD6C4\uC5D0 \uB2E4\uC2DC \uB9CC\uB4E4\uC9C0 \uC54A\uC544\uC694.');
-    url=await shortenSharedHomeUrl(longUrl);
-    if(!url) return;
-  } catch(error) {
-    showCaptureNotice('\uC9E7\uC740 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC5B4\uC694.','\uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.');
-    return;
-  }
+  const url=currentSharedHomeUrl();
   try {
     if(navigator.share){
       await navigator.share({title:'나의 오늘의 집',text:'오늘의 잘한 일로 꾸민 나의 작은 집이에요.',url});

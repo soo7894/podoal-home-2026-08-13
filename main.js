@@ -31,11 +31,21 @@ const capturedHomeImage = document.querySelector('#captured-home-image');
 const saveCapturedImageButton = document.querySelector('#save-captured-image');
 const shareCapturedImageButton = document.querySelector('#share-captured-image');
 const decorOptions = document.querySelector('#decor-options');
+const managerBackdrop = document.querySelector('#manager-backdrop');
+const managerList = document.querySelector('#manager-list');
+const weekSummary = document.querySelector('#week-summary');
+const managerEditor = document.querySelector('#manager-editor');
+const editMemoryText = document.querySelector('#edit-memory-text');
+const editMemoryDecor = document.querySelector('#edit-memory-decor');
+const importDataInput = document.querySelector('#import-data');
+const guideBackdrop = document.querySelector('#guide-backdrop');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
+const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 let selectedDecor = 'flower';
+let editingMemoryDate = null;
 const DECOR_OPTIONS = [
   ['flower','✿','꽃 화분'],['lamp','☀','작은 조명'],['book','▤','책 더미'],['flag','⚑','응원 깃발'],['tree','♟','작은 나무'],['bigtree','♟','큰 나무'],['bench','▰','나무 벤치'],
   ['fountain','⛲','분수'],['birdhouse','⌂','새집'],['mailbox','✉','우편함'],['fence','▥','울타리'],['swing','♧','그네'],['bicycle','◎','자전거'],
@@ -522,9 +532,12 @@ if(type==='chime') {
   if(animate) { const baseY=g.position.y; g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=baseY+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=baseY; }; requestAnimationFrame(grow); }
 }
 // a welcoming starter scene
-addDecoration('flower',0,false,'친구에게 먼저 안부를 물었다','starter-flower'); addDecoration('book',1,false,'미뤄둔 책을 20쪽 읽었다','starter-book');
-
+function addStarterDecorations(){
+  addDecoration('flower',0,false,'친구에게 먼저 안부를 물었다','starter-flower');
+  addDecoration('book',1,false,'미뤄둔 책을 20쪽 읽었다','starter-book');
+}
 function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i+2,false,m.text,`memory-${m.date||i}`,m.flowerColor)); }
+addStarterDecorations();
 addStoredDecorations();
 function settleGroundDecorations(){
   for(let pass=0;pass<5;pass++){
@@ -542,6 +555,25 @@ function settleGroundDecorations(){
   }
 }
 settleGroundDecorations();
+
+function clearPlacedDecorations(){
+  placed.children.slice().forEach(decoration=>{
+    decoration.userData.hotspot?.remove();
+    decoration.traverse(node=>{
+      node.geometry?.dispose();
+      if(Array.isArray(node.material)) node.material.forEach(material=>material.dispose());
+      else node.material?.dispose();
+    });
+    placed.remove(decoration);
+  });
+  clearRoofGarland();
+}
+function rebuildDecorations(){
+  clearPlacedDecorations();
+  addStarterDecorations();
+  addStoredDecorations();
+  settleGroundDecorations();
+}
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -733,6 +765,102 @@ function renderRecords(){
 function escapeHTML(text){ const el=document.createElement('div');el.textContent=text;return el.innerHTML; }
 renderRecords();
 
+function memoryWeekKey(value){
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?'':localDateString(date);
+}
+function renderWeekSummary(){
+  const today=dateFromString(localDateString());
+  const monday=new Date(today);
+  monday.setDate(today.getDate()-(today.getDay()+6)%7);
+  const weekday=['월','화','수','목','금','토','일'];
+  weekSummary.innerHTML=`<div class="week-days">${Array.from({length:7},(_,index)=>{
+    const day=new Date(monday); day.setDate(monday.getDate()+index);
+    const key=localDateString(day);
+    const count=memories.filter(memory=>memoryWeekKey(memory.date)===key).length;
+    return `<div class="week-day${key===localDateString()?' today':''}"><small>${weekday[index]}</small><b>${count}</b></div>`;
+  }).join('')}</div>`;
+}
+function renderManager(){
+  renderWeekSummary();
+  editMemoryDecor.innerHTML=DECOR_OPTIONS.map(([type,,label])=>`<option value="${type}">${label}</option>`).join('');
+  managerList.innerHTML=memories.length?memories.map(memory=>`<article class="manager-item"><span class="manager-icon">${DECOR_INFO[memory.decor]?.icon||'✦'}</span><div><b>${escapeHTML(memory.text)}</b><small>${formatMemoryTimestamp(memory.date)}</small></div><div class="manager-item-actions"><button type="button" data-edit-memory="${memory.date}">수정</button><button class="delete-memory" type="button" data-delete-memory="${memory.date}">삭제</button></div></article>`).join(''):'<p class="manager-empty">아직 기록한 잘한 일이 없어요.</p>';
+}
+function saveAllData(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(memories));
+  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(decorLayout));
+  localStorage.setItem(STREAK_START_KEY,streakStartDate);
+  localStorage.setItem(HOUSE_NAME_KEY,houseName);
+}
+function openManager(){
+  editingMemoryDate=null;
+  managerEditor.hidden=true;
+  renderManager();
+  managerBackdrop.classList.add('open');
+  managerBackdrop.setAttribute('aria-hidden','false');
+}
+function closeManager(){
+  managerBackdrop.classList.remove('open');
+  managerBackdrop.setAttribute('aria-hidden','true');
+  editingMemoryDate=null;
+}
+function openMemoryEditor(date){
+  const memory=memories.find(item=>item.date===date);
+  if(!memory) return;
+  editingMemoryDate=date;
+  editMemoryText.value=memory.text;
+  editMemoryDecor.value=memory.decor;
+  managerEditor.hidden=false;
+  editMemoryText.focus();
+}
+function saveMemoryEdit(){
+  const memory=memories.find(item=>item.date===editingMemoryDate);
+  const text=editMemoryText.value.trim();
+  if(!memory||!text) return editMemoryText.focus();
+  memory.text=text;
+  memory.decor=editMemoryDecor.value;
+  if(memory.decor==='flower'&&!memory.flowerColor) memory.flowerColor=randomFlowerColor();
+  saveAllData();
+  rebuildDecorations();
+  renderRecords();
+  renderManager();
+  managerEditor.hidden=true;
+  editingMemoryDate=null;
+}
+function deleteMemory(date){
+  memories=memories.filter(memory=>memory.date!==date);
+  delete decorLayout[`memory-${date}`];
+  saveAllData();
+  rebuildDecorations();
+  renderRecords();
+  renderManager();
+}
+function exportData(){
+  const backup={version:1,exportedAt:new Date().toISOString(),memories,streakStartDate,houseName,decorLayout};
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a'); link.href=url; link.download=`my-little-day-backup-${localDateString()}.json`; link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+function importData(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.addEventListener('load',()=>{
+    try {
+      const backup=JSON.parse(String(reader.result));
+      if(!Array.isArray(backup.memories)) throw new Error('invalid backup');
+      memories=backup.memories.filter(memory=>typeof memory?.text==='string'&&typeof memory?.decor==='string'&&typeof memory?.date==='string');
+      decorLayout=backup.decorLayout&&typeof backup.decorLayout==='object'?backup.decorLayout:{};
+      streakStartDate=typeof backup.streakStartDate==='string'?backup.streakStartDate:'';
+      houseName=typeof backup.houseName==='string'&&backup.houseName.trim()?backup.houseName.trim():houseName;
+      houseNameText.textContent=`${houseName}네 집`;
+      drawNameplate(); saveAllData(); rebuildDecorations(); renderRecords(); updateStreak(); renderManager();
+      alert('백업을 불러왔어요.');
+    } catch { alert('열 수 없는 백업 파일입니다.'); }
+  });
+  reader.readAsText(file);
+}
+
 function localDateString(date = new Date()){
   const offset = date.getTimezoneOffset()*60000;
   return new Date(date.getTime()-offset).toISOString().slice(0,10);
@@ -821,3 +949,31 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
 document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });
+
+document.querySelector('#open-manager').addEventListener('click',openManager);
+document.querySelector('#close-manager').addEventListener('click',closeManager);
+managerBackdrop.addEventListener('click',event=>{ if(event.target===managerBackdrop) closeManager(); });
+managerList.addEventListener('click',event=>{
+  const edit=event.target.closest('[data-edit-memory]');
+  const remove=event.target.closest('[data-delete-memory]');
+  if(edit) openMemoryEditor(edit.dataset.editMemory);
+  if(remove&&confirm('이 기록과 연결된 장식을 삭제할까요?')) deleteMemory(remove.dataset.deleteMemory);
+});
+document.querySelector('#save-memory-edit').addEventListener('click',saveMemoryEdit);
+document.querySelector('#cancel-memory-edit').addEventListener('click',()=>{ editingMemoryDate=null; managerEditor.hidden=true; });
+document.querySelector('#export-data').addEventListener('click',exportData);
+document.querySelector('#import-data-button').addEventListener('click',()=>importDataInput.click());
+importDataInput.addEventListener('change',event=>{ importData(event.target.files?.[0]); event.target.value=''; });
+document.querySelector('#reset-layout').addEventListener('click',()=>{
+  if(!confirm('모든 장식을 처음 위치로 되돌릴까요? 기록과 색상은 유지됩니다.')) return;
+  decorLayout=Object.fromEntries(Object.entries(decorLayout).map(([id,position])=>[id,Object.fromEntries(Object.entries(position).filter(([key])=>key!=='x'&&key!=='z'))]));
+  saveAllData(); rebuildDecorations(); renderManager();
+});
+
+function openGuide(){ guideBackdrop.classList.add('open'); guideBackdrop.setAttribute('aria-hidden','false'); }
+function closeGuide(){ guideBackdrop.classList.remove('open'); guideBackdrop.setAttribute('aria-hidden','true'); localStorage.setItem(GUIDE_SEEN_KEY,'true'); }
+document.querySelector('#open-guide').addEventListener('click',openGuide);
+document.querySelector('#close-guide').addEventListener('click',closeGuide);
+document.querySelector('#finish-guide').addEventListener('click',closeGuide);
+guideBackdrop.addEventListener('click',event=>{ if(event.target===guideBackdrop) closeGuide(); });
+if(!localStorage.getItem(GUIDE_SEEN_KEY)) setTimeout(openGuide,550);

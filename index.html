@@ -44,6 +44,7 @@
           <button class="scene-capture-button fixed-capture-button" id="open-home-capture" type="button" aria-label="사진찍기" data-tooltip="사진찍기">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5h3l1.1-2h6.8l1.1 2h3A1.5 1.5 0 0 1 21 9v8.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V9a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="12" cy="13" r="3.5"/></svg>
           </button>
+          <button class="scene-help-button" id="open-guide" type="button">? 조작법</button>
           <div class="scene-hint"><span>↔↕</span> 좌우·위아래로 보고, 장식은 끌어 놓기</div>
         </div>
 
@@ -85,6 +86,7 @@
             <li><span class="memory-dot flower"></span><div><b>친구에게 먼저 안부를 물었다</b><small>어제</small></div></li>
             <li><span class="memory-dot book"></span><div><b>미뤄둔 책을 20쪽 읽었다</b><small>8월 5일</small></div></li>
           </ul>
+          <button class="text-button" id="open-manager" type="button">기록 · 장식 관리하기 →</button>
         </div>
       </section>
     </main>
@@ -129,6 +131,43 @@
         <button class="primary-button save-button" id="save-start-date">이날부터 시작하기 <span>→</span></button>
       </section>
     </div>
-    <script type="module" src="./main.js?v=73"></script>
+
+    <div class="entry-backdrop manager-backdrop" id="manager-backdrop" aria-hidden="true">
+      <section class="manager-modal" role="dialog" aria-modal="true" aria-labelledby="manager-title">
+        <button class="close-modal" id="close-manager" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> MY LITTLE ARCHIVE</p>
+        <h2 id="manager-title">나의 기록과<br /><em>장식 관리</em></h2>
+        <div class="manager-actions">
+          <button id="export-data" type="button">백업하기</button>
+          <button id="import-data-button" type="button">불러오기</button>
+          <input id="import-data" type="file" accept="application/json" hidden />
+          <button class="danger-outline" id="reset-layout" type="button">장식 위치 초기화</button>
+        </div>
+        <section class="week-summary"><p class="mini-title">THIS WEEK</p><div id="week-summary"></div></section>
+        <p class="mini-title manager-list-title">ALL MEMORIES</p>
+        <div class="manager-list" id="manager-list"></div>
+        <section class="manager-editor" id="manager-editor" hidden>
+          <p class="mini-title">EDIT MEMORY</p>
+          <input id="edit-memory-text" maxlength="42" aria-label="잘한 일 수정" />
+          <select id="edit-memory-decor" aria-label="장식 변경"></select>
+          <div><button class="primary-button" id="save-memory-edit" type="button">저장하기</button><button class="plain-button" id="cancel-memory-edit" type="button">취소</button></div>
+        </section>
+      </section>
+    </div>
+
+    <div class="entry-backdrop guide-backdrop" id="guide-backdrop" aria-hidden="true">
+      <section class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+        <button class="close-modal" id="close-guide" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> WELCOME HOME</p>
+        <h2 id="guide-title">나만의 집을<br /><em>꾸며볼까요?</em></h2>
+        <ol class="guide-steps">
+          <li><b>1</b><span><strong>잘한 일 기록</strong>왼쪽의 ‘오늘의 잘한 일 기록하기’를 눌러요.</span></li>
+          <li><b>2</b><span><strong>장식 배치</strong>생긴 장식을 끌어서 집 밖 원하는 곳에 놓아요.</span></li>
+          <li><b>3</b><span><strong>집 둘러보기</strong>빈 공간을 드래그하면 집을 회전하고 위아래 시점도 바뀌어요.</span></li>
+        </ol>
+        <button class="primary-button save-button" id="finish-guide" type="button">시작하기 <span>→</span></button>
+      </section>
+    </div>
+    <script type="module" src="./main.js?v=74"></script>
   </body>
 </html>

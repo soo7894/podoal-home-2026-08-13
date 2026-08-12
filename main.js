@@ -55,6 +55,7 @@ const DECOR_OPTIONS = [
   ['chime','♬','바람 종'],['pumpkin','●','호박'],['cat','⌁','고양이'],['dog','♧','강아지'],['stepping','◌','디딤돌'],['topiary','✦','토피어리'],
   ['rooflight','✦','지붕 조명']
 ];
+const SHARE_DECOR_TYPES = DECOR_OPTIONS.map(([type])=>type);
 const DECOR_INFO = Object.fromEntries(DECOR_OPTIONS.map(([type,icon,label])=>[type,{icon,label}]));
 const DECOR_CATEGORIES=[
   ['식물 · 꽃',['flower','tree','bigtree','leafplant','flowerbed','sunflower','mushroom','pumpkin','topiary','stone']],
@@ -112,9 +113,63 @@ function decodeSharedHome(){
     const binary=atob(padded);
     const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
     const data=JSON.parse(new TextDecoder().decode(bytes));
+    if(data.v===2) return unpackSharedHome(data);
     if(!Array.isArray(data.memories)||!data.decorLayout||typeof data.houseName!=='string') return null;
     return data;
   } catch { return null; }
+}
+function compactDecorationId(id){
+  return id.startsWith('memory-')?`m${Date.parse(id.slice(7))}`:id==='starter-flower'?'s0':id==='starter-book'?'s1':id;
+}
+function expandDecorationId(id){
+  if(typeof id!=='string') return '';
+  if(id.startsWith('m')) {
+    const time=Number(id.slice(1));
+    return Number.isFinite(time)?`memory-${new Date(time).toISOString()}`:id;
+  }
+  return id==='s0'?'starter-flower':id==='s1'?'starter-book':id;
+}
+function packSharedHome(){
+  const active=placed.children.map(decoration=>{
+    const saved=decorLayout[decoration.userData.decorationId]||{};
+    const bloomMask=(saved.bloomedBuds||[]).reduce((bits,index)=>bits|(1<<index),0);
+    return [
+      compactDecorationId(decoration.userData.decorationId),
+      Math.round(decoration.position.x*100),
+      Math.round(decoration.position.z*100),
+      decoration.userData.flowerColor||saved.flowerColor||0,
+      bloomMask,
+      decoration.userData.roofLightOn?1:0
+    ];
+  });
+  return {
+    v:2,
+    m:memories.map(memory=>[memory.text,SHARE_DECOR_TYPES.indexOf(memory.decor),Date.parse(memory.date)||0,memory.flowerColor||0]),
+    s:streakStartDate,
+    n:houseName,
+    d:active,
+    w:[Math.round(world.rotation.y*1000),Math.round(camera.position.y*100)]
+  };
+}
+function unpackSharedHome(data){
+  if(!Array.isArray(data.m)||!Array.isArray(data.d)||typeof data.n!=='string') return null;
+  const memories=data.m.map(([text,typeIndex,time,flowerColor])=>({
+    text:String(text||''),
+    decor:SHARE_DECOR_TYPES[typeIndex]||'flower',
+    date:Number.isFinite(time)&&time>0?new Date(time).toISOString():new Date().toISOString(),
+    flowerColor:flowerColor||null
+  }));
+  const decorLayout={};
+  data.d.forEach(([compactId,x,z,flowerColor,bloomMask,roofLightOn])=>{
+    const id=expandDecorationId(compactId);
+    if(!id||!Number.isFinite(x)||!Number.isFinite(z)) return;
+    const saved={x:x/100,z:z/100};
+    if(flowerColor) saved.flowerColor=flowerColor;
+    if(bloomMask) saved.bloomedBuds=[0,1,2].filter(index=>bloomMask&(1<<index));
+    if(roofLightOn) saved.roofLightOn=true;
+    decorLayout[id]=saved;
+  });
+  return {memories,streakStartDate:data.s||'',houseName:data.n,decorLayout,view:{rotation:(data.w?.[0]??440)/1000,cameraHeight:(data.w?.[1]??630)/100}};
 }
 function encodeSharedHome(data){
   const bytes=new TextEncoder().encode(JSON.stringify(data));
@@ -787,14 +842,7 @@ async function shareCapturedImage(){
   }
 }
 function currentSharedHomeUrl(){
-  const shareData={
-    version:1,
-    memories,
-    streakStartDate,
-    houseName,
-    decorLayout,
-    view:{rotation:world.rotation.y,cameraHeight:camera.position.y}
-  };
+  const shareData=packSharedHome();
   const baseUrl=(location.hostname==='127.0.0.1'||location.hostname==='localhost')
     ? 'https://soo7894.github.io/podoal-home/'
     : `${location.origin}${location.pathname}`;

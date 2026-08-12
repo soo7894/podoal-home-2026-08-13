@@ -295,6 +295,8 @@ function bloomFlowerbedBud(decoration,bud,animate=true){
   if(!bud||bud.bloomed) return;
   bud.bloomed=true;
   bud.roundBud.visible=false;
+  bud.stem.scale.y=.5;
+  bud.stem.position.y=.25;
   const tulip=new THREE.Group();
   const tulipColor=bud.color;
   const heartShape=new THREE.Shape();
@@ -303,7 +305,11 @@ function bloomFlowerbedBud(decoration,bud,animate=true){
   heartShape.bezierCurveTo(-.11,.13,-.04,.15,0,.085);
   heartShape.bezierCurveTo(.04,.15,.11,.13,.125,.075);
   heartShape.bezierCurveTo(.14,.01,.09,-.05,0,-.11);
-  const heart=mesh(new THREE.ExtrudeGeometry(heartShape,{depth:.055,bevelEnabled:true,bevelThickness:.014,bevelSize:.012,bevelSegments:2,curveSegments:14}),mat(tulipColor),new THREE.Vector3(0,0,-.028),tulip);
+  const heartMaterial=mat(tulipColor);
+  heartMaterial.polygonOffset=true;
+  heartMaterial.polygonOffsetFactor=-1;
+  heartMaterial.polygonOffsetUnits=-1;
+  const heart=mesh(new THREE.ExtrudeGeometry(heartShape,{depth:.055,bevelEnabled:true,bevelThickness:.014,bevelSize:.012,bevelSegments:2,curveSegments:14}),heartMaterial,new THREE.Vector3(0,0,-.028),tulip);
   heart.castShadow=true;
   heart.receiveShadow=true;
   bud.holder.add(tulip);

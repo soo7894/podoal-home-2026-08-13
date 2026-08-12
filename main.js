@@ -45,7 +45,7 @@ const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const SHARE_HASH_PREFIX = '#my-little-home=';
-const TINYURL_CACHE_KEY = 'my-little-day-tinyurl-cache-v1';
+const SHORT_LINK_CACHE_KEY = 'my-little-day-short-link-cache-v2';
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
 const DECOR_OPTIONS = [
@@ -852,23 +852,42 @@ function currentSharedHomeUrl(){
 }
 function readTinyUrlCache(){
   try {
-    const saved=JSON.parse(localStorage.getItem(TINYURL_CACHE_KEY)||'{}');
+    const saved=JSON.parse(localStorage.getItem(SHORT_LINK_CACHE_KEY)||'{}');
     return saved&&typeof saved==='object'?saved:{};
   } catch { return {}; }
 }
 function saveTinyUrlCache(cache){
   const entries=Object.entries(cache).slice(-60);
-  localStorage.setItem(TINYURL_CACHE_KEY,JSON.stringify(Object.fromEntries(entries)));
+  localStorage.setItem(SHORT_LINK_CACHE_KEY,JSON.stringify(Object.fromEntries(entries)));
+}
+function createShortLink(longUrl){
+  return new Promise((resolve,reject)=>{
+    const callback=`homeShare${Date.now()}${Math.random().toString(36).slice(2)}`;
+    const script=document.createElement('script');
+    const timeout=setTimeout(()=>finish(new Error('short link timeout')),10000);
+    const finish=result=>{
+      clearTimeout(timeout);
+      script.remove();
+      delete window[callback];
+      result instanceof Error?reject(result):resolve(result);
+    };
+    window[callback]=data=>{
+      const url=data?.shorturl;
+      if(typeof url==='string'&&url.startsWith('https://is.gd/')) finish(url);
+      else finish(new Error(data?.errormessage||'short link failed'));
+    };
+    script.onerror=()=>finish(new Error('short link failed'));
+    script.src=`https://is.gd/create.php?format=json&callback=${callback}&url=${encodeURIComponent(longUrl)}`;
+    document.head.append(script);
+  });
 }
 async function shortenSharedHomeUrl(longUrl){
   const cache=readTinyUrlCache();
   if(cache[longUrl]) return cache[longUrl];
-  const response=await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
-  const tinyUrl=(await response.text()).trim();
-  if(!response.ok||!/^https:\/\/tinyurl\.com\/[\w-]+$/i.test(tinyUrl)) throw new Error('TinyURL request failed');
-  cache[longUrl]=tinyUrl;
+  const shortUrl=await createShortLink(longUrl);
+  cache[longUrl]=shortUrl;
   saveTinyUrlCache(cache);
-  return tinyUrl;
+  return shortUrl;
 }
 async function shareHomeLink(){
   const longUrl=currentSharedHomeUrl();

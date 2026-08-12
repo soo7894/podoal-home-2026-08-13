@@ -106,7 +106,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, 1, .1, 100);
-camera.position.set(8.5, 6.1, 10.5);
+camera.position.set(3.6, 6.3, 13.6);
 const target = new THREE.Vector3(0, 1.45, 0);
 const world = new THREE.Group();
 // Keep the front facade in view so the open doorway can reveal the room depth.
@@ -547,7 +547,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0),-.04);
 const dragPoint = new THREE.Vector3();
-let dragging=false, draggingDecoration=null, clickedFlowerbedBud=null, dragStartX=0, dragStartY=0, decorationMoved=false, doorPressed=false, doorStartX=0, doorStartY=0, lastX=0, lastY=0, desiredRotation=.44, desiredCameraHeight=6.1, userHasDragged=false;
+let dragging=false, draggingDecoration=null, clickedFlowerbedBud=null, dragStartX=0, dragStartY=0, decorationMoved=false, doorPressed=false, doorStartX=0, doorStartY=0, lastX=0, lastY=0, desiredRotation=.44, desiredCameraHeight=6.3, userHasDragged=false;
 function hideDecorTooltip(){ decorTooltip.classList.remove('show'); canvas.style.cursor='grab'; }
 function showDecorTooltip(decoration, x, y){
   decorTooltip.querySelector('p').textContent=decoration.userData.memoryText;
@@ -619,7 +619,7 @@ function checkDecorHover(event){
   canvas.style.cursor='pointer';
 }
 canvas.addEventListener('pointerdown',e=>{ if(getDoorAtEvent(e)){ doorPressed=true; doorStartX=e.clientX; doorStartY=e.clientY; canvas.setPointerCapture(e.pointerId); return; } const decoration=getDecorationAtEvent(e); dragging=true; lastX=e.clientX; lastY=e.clientY; desiredRotation=world.rotation.y; canvas.setPointerCapture(e.pointerId); if(decoration){ draggingDecoration=decoration; clickedFlowerbedBud=decoration.userData.type==='flowerbed'?getFlowerbedBudAtEvent(e):null; dragStartX=e.clientX; dragStartY=e.clientY; decorationMoved=false; hideDecorTooltip(); canvas.style.cursor='grabbing'; return; } });
-canvas.addEventListener('pointermove',e=>{ if(doorPressed) return; if(!dragging) return checkDecorHover(e); if(draggingDecoration){ if(Math.hypot(e.clientX-dragStartX,e.clientY-dragStartY)>6){ decorationMoved=true; moveDecoration(e,draggingDecoration); } return; } desiredRotation=THREE.MathUtils.clamp(desiredRotation+(e.clientX-lastX)*.012,-Math.PI/2,Math.PI*.75); desiredCameraHeight=THREE.MathUtils.clamp(desiredCameraHeight+(lastY-e.clientY)*.012,5.25,7.25); lastX=e.clientX; lastY=e.clientY; userHasDragged=true; });
+canvas.addEventListener('pointermove',e=>{ if(doorPressed) return; if(!dragging) return checkDecorHover(e); if(draggingDecoration){ if(Math.hypot(e.clientX-dragStartX,e.clientY-dragStartY)>6){ decorationMoved=true; moveDecoration(e,draggingDecoration); } return; } desiredRotation=THREE.MathUtils.clamp(desiredRotation+(e.clientX-lastX)*.012,-Math.PI/2,Math.PI/2); desiredCameraHeight=THREE.MathUtils.clamp(desiredCameraHeight+(lastY-e.clientY)*.012,5.45,7.45); lastX=e.clientX; lastY=e.clientY; userHasDragged=true; });
 canvas.addEventListener('mousemove',e=>{ if(!dragging&&!doorPressed) checkDecorHover(e); });
 canvas.addEventListener('pointerup',e=>{ if(doorPressed){ if(Math.hypot(e.clientX-doorStartX,e.clientY-doorStartY)<8) toggleDoor(); doorPressed=false; checkDecorHover(e); return; } if(draggingDecoration){ const decoration=draggingDecoration; if(decorationMoved) saveDecorationPosition(decoration); else if(decoration.userData.type==='flower') changeFlowerColor(decoration); else if(decoration.userData.type==='flowerbed') bloomFlowerbedBud(decoration,clickedFlowerbedBud); else if(decoration.userData.isRoofDecoration) toggleRoofLight(decoration); else if(decoration.userData.type==='lamp') toggleSmallLamp(decoration); else if(decoration.userData.type==='chime') nudgeChime(decoration); else if(decoration.userData.type==='swing') swingForwardBack(decoration); draggingDecoration=null; clickedFlowerbedBud=null; } dragging=false; checkDecorHover(e); });
 canvas.addEventListener('pointercancel',()=>{ doorPressed=false; if(draggingDecoration&&decorationMoved) saveDecorationPosition(draggingDecoration); draggingDecoration=null; clickedFlowerbedBud=null; dragging=false; hideDecorTooltip(); });

@@ -44,7 +44,6 @@ const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const SHARE_HASH_PREFIX = '#my-little-home=';
-const TINYURL_TOKEN_KEY = 'my-little-day-tinyurl-token-v1';
 const TINYURL_CACHE_KEY = 'my-little-day-tinyurl-cache-v1';
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
@@ -811,33 +810,15 @@ function saveTinyUrlCache(cache){
   const entries=Object.entries(cache).slice(-60);
   localStorage.setItem(TINYURL_CACHE_KEY,JSON.stringify(Object.fromEntries(entries)));
 }
-function getTinyUrlToken(){
-  const saved=localStorage.getItem(TINYURL_TOKEN_KEY)?.trim();
-  if(saved) return saved;
-  const entered=window.prompt('\uC9E7\uC740 \uACF5\uC720 \uC8FC\uC18C\uB97C \uB9CC\uB4E4\uAE30 \uC704\uD574 TinyURL \uBB34\uB8CC API \uD1A0\uD070\uC744 \uD55C \uBC88\uB9CC \uC785\uB825\uD574 \uC8FC\uC138\uC694.\n\nTinyURL \uB85C\uADF8\uC778 \u2192 API Settings \u2192 Create TinyURL \uAD8C\uD55C\uC758 \uD1A0\uD070 \uC0DD\uC131\n\n\uD1A0\uD070\uC740 \uC774 \uAE30\uAE30\uC758 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uB9CC \uC800\uC7A5\uB418\uBA70 \uACF5\uAC1C \uCF54\uB4DC\uC5D0\uB294 \uB4E4\uC5B4\uAC00\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.');
-  const token=entered?.trim();
-  if(!token) return null;
-  localStorage.setItem(TINYURL_TOKEN_KEY,token);
-  return token;
-}
 async function shortenSharedHomeUrl(longUrl){
   const cache=readTinyUrlCache();
   if(cache[longUrl]) return cache[longUrl];
-  const token=getTinyUrlToken();
-  if(!token) return null;
-  const response=await fetch('https://api.tinyurl.com/create',{
-    method:'POST',
-    headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-    body:JSON.stringify({url:longUrl,domain:'tinyurl.com'})
-  });
-  const data=await response.json().catch(()=>null);
-  if(!response.ok||!data?.data?.tiny_url){
-    if(response.status===401||response.status===403) localStorage.removeItem(TINYURL_TOKEN_KEY);
-    throw new Error(data?.errors?.[0]?.message||'TinyURL request failed');
-  }
-  cache[longUrl]=data.data.tiny_url;
+  const response=await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+  const tinyUrl=(await response.text()).trim();
+  if(!response.ok||!/^https:\/\/tinyurl\.com\/[\w-]+$/i.test(tinyUrl)) throw new Error('TinyURL request failed');
+  cache[longUrl]=tinyUrl;
   saveTinyUrlCache(cache);
-  return data.data.tiny_url;
+  return tinyUrl;
 }
 async function shareHomeLink(){
   const longUrl=currentSharedHomeUrl();
@@ -847,7 +828,7 @@ async function shareHomeLink(){
     url=await shortenSharedHomeUrl(longUrl);
     if(!url) return;
   } catch(error) {
-    showCaptureNotice('\uC9E7\uC740 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC5B4\uC694.','TinyURL \uD1A0\uD070\uACFC \uB9CC\uB4E4\uAE30 \uAD8C\uD55C\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.');
+    showCaptureNotice('\uC9E7\uC740 \uB9C1\uD06C\uB97C \uB9CC\uB4E4\uC9C0 \uBABB\uD588\uC5B4\uC694.','\uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.');
     return;
   }
   try {

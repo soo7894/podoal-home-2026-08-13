@@ -299,11 +299,11 @@ function bloomFlowerbedBud(decoration,bud,animate=true){
   const tulip=new THREE.Group();
   const tulipColor=bud.color;
   const heartShape=new THREE.Shape();
-  heartShape.moveTo(0,-.11);
-  heartShape.bezierCurveTo(-.09,-.05,-.14,.01,-.125,.075);
-  heartShape.bezierCurveTo(-.11,.13,-.04,.15,0,.085);
-  heartShape.bezierCurveTo(.04,.15,.11,.13,.125,.075);
-  heartShape.bezierCurveTo(.14,.01,.09,-.05,0,-.11);
+  heartShape.moveTo(0,-.105);
+  heartShape.bezierCurveTo(-.075,-.045,-.11,.01,-.1,.07);
+  heartShape.bezierCurveTo(-.09,.12,-.035,.14,0,.08);
+  heartShape.bezierCurveTo(.035,.14,.09,.12,.1,.07);
+  heartShape.bezierCurveTo(.11,.01,.075,-.045,0,-.105);
   const heartMaterial=mat(tulipColor);
   heartMaterial.polygonOffset=true;
   heartMaterial.polygonOffsetFactor=-1;

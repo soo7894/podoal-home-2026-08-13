@@ -294,8 +294,8 @@ function bloomFlowerbedBud(decoration,bud,animate=true){
   if(!bud||bud.bloomed) return;
   bud.bloomed=true;
   bud.roundBud.visible=false;
-  bud.stem.scale.y=.5;
-  bud.stem.position.y=.25;
+  bud.stem.scale.y=.56;
+  bud.stem.position.y=.284;
   const tulip=new THREE.Group();
   const tulipColor=bud.color;
   const heartShape=new THREE.Shape();

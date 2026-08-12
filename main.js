@@ -36,7 +36,6 @@ const managerList = document.querySelector('#manager-list');
 const weekSummary = document.querySelector('#week-summary');
 const managerEditor = document.querySelector('#manager-editor');
 const editMemoryText = document.querySelector('#edit-memory-text');
-const editMemoryDecor = document.querySelector('#edit-memory-decor');
 const guideBackdrop = document.querySelector('#guide-backdrop');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
@@ -788,8 +787,7 @@ function renderWeekSummary(){
 }
 function renderManager(){
   renderWeekSummary();
-  editMemoryDecor.innerHTML=DECOR_OPTIONS.map(([type,,label])=>`<option value="${type}">${label}</option>`).join('');
-  managerList.innerHTML=memories.length?memories.map(memory=>`<article class="manager-item"><span class="manager-icon">${DECOR_INFO[memory.decor]?.icon||'✦'}</span><div><b>${escapeHTML(memory.text)}</b><small>${formatMemoryTimestamp(memory.date)}</small></div><div class="manager-item-actions"><button type="button" data-edit-memory="${memory.date}">수정</button><button class="delete-memory" type="button" data-delete-memory="${memory.date}">삭제</button></div></article>`).join(''):'<p class="manager-empty">아직 기록한 잘한 일이 없어요.</p>';
+  managerList.innerHTML=memories.length?memories.map(memory=>`<article class="manager-item"><div><b>${escapeHTML(memory.text)}</b><small>${formatMemoryTimestamp(memory.date)}</small></div><div class="manager-item-actions"><button type="button" data-edit-memory="${memory.date}">수정</button><button class="delete-memory" type="button" data-delete-memory="${memory.date}">삭제</button></div></article>`).join(''):'<p class="manager-empty">아직 기록한 잘한 일이 없어요.</p>';
 }
 function saveAllData(){
   localStorage.setItem(STORAGE_KEY,JSON.stringify(memories));
@@ -814,7 +812,6 @@ function openMemoryEditor(date){
   if(!memory) return;
   editingMemoryDate=date;
   editMemoryText.value=memory.text;
-  editMemoryDecor.value=memory.decor;
   managerEditor.hidden=false;
   editMemoryText.focus();
 }
@@ -823,8 +820,6 @@ function saveMemoryEdit(){
   const text=editMemoryText.value.trim();
   if(!memory||!text) return editMemoryText.focus();
   memory.text=text;
-  memory.decor=editMemoryDecor.value;
-  if(memory.decor==='flower'&&!memory.flowerColor) memory.flowerColor=randomFlowerColor();
   saveAllData();
   rebuildDecorations();
   renderRecords();
@@ -941,11 +936,6 @@ managerList.addEventListener('click',event=>{
 });
 document.querySelector('#save-memory-edit').addEventListener('click',saveMemoryEdit);
 document.querySelector('#cancel-memory-edit').addEventListener('click',()=>{ editingMemoryDate=null; managerEditor.hidden=true; });
-document.querySelector('#reset-layout').addEventListener('click',()=>{
-  if(!confirm('모든 장식을 처음 위치로 되돌릴까요? 기록과 색상은 유지됩니다.')) return;
-  decorLayout=Object.fromEntries(Object.entries(decorLayout).map(([id,position])=>[id,Object.fromEntries(Object.entries(position).filter(([key])=>key!=='x'&&key!=='z'))]));
-  saveAllData(); rebuildDecorations(); renderManager();
-});
 
 function openGuide(){ guideBackdrop.classList.add('open'); guideBackdrop.setAttribute('aria-hidden','false'); }
 function closeGuide(){ guideBackdrop.classList.remove('open'); guideBackdrop.setAttribute('aria-hidden','true'); localStorage.setItem(GUIDE_SEEN_KEY,'true'); }

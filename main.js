@@ -303,7 +303,7 @@ function bloomFlowerbedBud(decoration,bud,animate=true){
   heartShape.bezierCurveTo(-.11,.13,-.04,.15,0,.085);
   heartShape.bezierCurveTo(.04,.15,.11,.13,.125,.075);
   heartShape.bezierCurveTo(.14,.01,.09,-.05,0,-.11);
-  const heart=mesh(new THREE.ExtrudeGeometry(heartShape,{depth:.055,bevelEnabled:true,bevelThickness:.014,bevelSize:.012,bevelSegments:2,curveSegments:14}),mat(tulipColor),new THREE.Vector3(0,0,-.028),tulip);
+  const heart=mesh(new THREE.ExtrudeGeometry(heartShape,{depth:.082,bevelEnabled:true,bevelThickness:.022,bevelSize:.018,bevelSegments:3,curveSegments:14}),mat(tulipColor),new THREE.Vector3(0,0,-.041),tulip);
   heart.castShadow=true;
   heart.receiveShadow=true;
   bud.holder.add(tulip);

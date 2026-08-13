@@ -45,6 +45,10 @@ const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const SHARE_HASH_PREFIX = '#my-little-home=';
+const SHARE_ID_PREFIX = '#share=';
+const SHARE_LINK_CACHE_KEY = 'my-little-day-last-share-link-v1';
+const SHARE_ENDPOINT = 'https://alpxeyqkqlacbbluwazq.supabase.co/functions/v1/home-share';
+const SHARE_PUBLISHABLE_KEY = 'sb_publishable_kx3FsYOCmIZJTVcIDr1B0g_FWZr8BT_';
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
 const DECOR_OPTIONS = [
@@ -119,6 +123,24 @@ function decodeSharedHome(){
     return data;
   } catch { return null; }
 }
+function sharedHomeIdFromHash(){
+  const id=location.hash.startsWith(SHARE_ID_PREFIX)?location.hash.slice(SHARE_ID_PREFIX.length):'';
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)?id:'';
+}
+async function loadSharedHome(id){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),8000);
+  try {
+    const response=await fetch(`${SHARE_ENDPOINT}?id=${encodeURIComponent(id)}`,{
+      headers:{apikey:SHARE_PUBLISHABLE_KEY},
+      signal:controller.signal,
+    });
+    if(!response.ok) return null;
+    const payload=await response.json();
+    return payload?.state?.v===2?unpackSharedHome(payload.state):null;
+  } catch { return null; }
+  finally { clearTimeout(timeout); }
+}
 function compactDecorationId(id){
   return id.startsWith('memory-')?`m${Date.parse(id.slice(7))}`:id==='starter-flower'?'s0':id==='starter-book'?'s1':id;
 }
@@ -180,7 +202,9 @@ function encodeSharedHome(data){
   bytes.forEach(byte=>{ binary+=String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
-const sharedHome=decodeSharedHome();
+let sharedHome=decodeSharedHome();
+const shortSharedHomeId=sharedHomeIdFromHash();
+if(!sharedHome&&shortSharedHomeId) sharedHome=await loadSharedHome(shortSharedHomeId);
 const isSharedHome=Boolean(sharedHome);
 const sharedView=sharedHome?.view||{};
 const sharedRotation=Number.isFinite(sharedView.rotation)?sharedView.rotation:.44;
@@ -845,20 +869,46 @@ async function shareCapturedImage(){
     if(error?.name!=='AbortError') showCaptureNotice('공유를 준비하지 못했어요.','잠시 후 다시 시도해 주세요.');
   }
 }
-function currentSharedHomeUrl(){
-  const shareData=packSharedHome();
-  const baseUrl=(location.hostname==='127.0.0.1'||location.hostname==='localhost')
+function shareBaseUrl(){
+  return (location.hostname==='127.0.0.1'||location.hostname==='localhost')
     ? 'https://soo7894.github.io/podoal-home/'
     : `${location.origin}${location.pathname}`;
-  return `${baseUrl}${SHARE_HASH_PREFIX}${encodeSharedHome(shareData)}`;
+}
+function readCachedShareLink(signature){
+  try {
+    const cached=JSON.parse(localStorage.getItem(SHARE_LINK_CACHE_KEY)||'null');
+    return cached?.signature===signature&&typeof cached.url==='string'?cached.url:'';
+  } catch { return ''; }
+}
+function cacheShareLink(signature,url){
+  try { localStorage.setItem(SHARE_LINK_CACHE_KEY,JSON.stringify({signature,url})); } catch {}
+}
+async function currentSharedHomeUrl(){
+  const snapshot=packSharedHome();
+  const signature=JSON.stringify(snapshot);
+  const cached=readCachedShareLink(signature);
+  if(cached) return cached;
+  const response=await fetch(SHARE_ENDPOINT,{
+    method:'POST',
+    headers:{apikey:SHARE_PUBLISHABLE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({state:snapshot}),
+  });
+  const payload=await response.json().catch(()=>null);
+  if(!response.ok||typeof payload?.id!=='string') throw new Error('share-link-failed');
+  const url=`${shareBaseUrl()}${SHARE_ID_PREFIX}${payload.id}`;
+  cacheShareLink(signature,url);
+  return url;
 }
 async function shareHomeLink(){
-  const url=currentSharedHomeUrl();
+  showCaptureNotice('공유 링크를 만들고 있어요.','잠시만 기다려 주세요.');
   try {
+    const url=await currentSharedHomeUrl();
     if(navigator.share){
-      await navigator.share({title:'나의 오늘의 집',text:'오늘의 잘한 일로 꾸민 나의 작은 집이에요.',url});
-      showCaptureNotice('집 링크를 공유했어요!','친구가 같은 배치와 각도로 집을 볼 수 있어요.');
-      return;
+      try {
+        await navigator.share({title:'나의 오늘의 집',text:'오늘의 잘한 일로 꾸민 나의 작은 집이에요.',url});
+        showCaptureNotice('집 링크를 공유했어요!','친구가 같은 배치와 각도로 집을 볼 수 있어요.');
+        return;
+      } catch(error) { if(error?.name==='AbortError') return; }
     }
     if(navigator.clipboard?.writeText){
       await navigator.clipboard.writeText(url);
@@ -867,7 +917,7 @@ async function shareHomeLink(){
     }
     window.prompt('아래 링크를 복사해 친구에게 보내세요.',url);
   } catch(error) {
-    if(error?.name!=='AbortError') window.prompt('아래 링크를 복사해 친구에게 보내세요.',url);
+    showCaptureNotice('공유 링크를 만들지 못했어요.','인터넷 연결을 확인한 뒤 다시 눌러 주세요.');
   }
 }
 openHomeCaptureButton.addEventListener('click',openCapturePreview);

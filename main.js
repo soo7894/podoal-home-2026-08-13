@@ -39,11 +39,22 @@ const weekSummary = document.querySelector('#week-summary');
 const managerEditor = document.querySelector('#manager-editor');
 const editMemoryText = document.querySelector('#edit-memory-text');
 const guideBackdrop = document.querySelector('#guide-backdrop');
+const doorMissionBadge = document.querySelector('#door-mission-badge');
+const doorMissionCopy = document.querySelector('#door-mission-copy');
+const doorMissionCount = document.querySelector('#door-mission-count');
+const interiorView = document.querySelector('#interior-view');
+const interiorRoom = document.querySelector('#interior-room');
+const interiorItems = document.querySelector('#interior-items');
+const interiorInventoryList = document.querySelector('#interior-inventory-list');
+const interiorItemCount = document.querySelector('#interior-item-count');
+const interiorHouseName = document.querySelector('#interior-house-name');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
+const INTERIOR_LAYOUT_KEY = 'my-little-day-interior-layout-v1';
+const INTERIOR_UNLOCK_DAYS = 3;
 const SHARE_HASH_PREFIX = '#my-little-home=';
 const SHARE_ID_PREFIX = '#share=';
 const SHARE_LINK_CACHE_KEY = 'my-little-day-last-share-link-v1';
@@ -66,6 +77,15 @@ const DECOR_CATEGORIES=[
   ['정원 · 휴식',['bench','fountain','birdbath','fence','swing','hammock','arch','stepping','watering']],
   ['야외 소품',['lamp','book','flag','birdhouse','mailbox','bicycle','lantern','basket','chime']],
   ['집 · 친구',['rooflight','gnome','cat','dog']]
+];
+const FUTURE_DECOR_OPTIONS = ['작은 온실','연못과 오리','꽃 아치 조명','포도나무 그늘','비밀 우체통','새로운 친구'];
+const INTERIOR_ITEMS = [
+  {id:'sun-rug',label:'햇살 러그',unlockDays:3,x:48,y:72},
+  {id:'leaf-pot',label:'둥근 잎 화분',unlockDays:3,x:34,y:58},
+  {id:'mood-lamp',label:'작은 무드등',unlockDays:3,x:63,y:49},
+  {id:'soft-cushion',label:'살구 쿠션',unlockDays:4,x:72,y:64},
+  {id:'book-stack',label:'저녁 책 더미',unlockDays:5,x:55,y:57},
+  {id:'picnic-basket',label:'포도 바구니',unlockDays:6,x:22,y:68}
 ];
 const DECOR_ART = {
   flower:'<path d="M29 42h15l-2-13H31z" fill="#d97855"/><path d="M36 29v-12" stroke="#4f7d50" stroke-width="3"/><g fill="#ef90a3"><circle cx="36" cy="15" r="6"/><circle cx="29" cy="20" r="6"/><circle cx="43" cy="20" r="6"/><circle cx="31" cy="27" r="6"/><circle cx="41" cy="27" r="6"/></g><circle cx="36" cy="21" r="4" fill="#f8cb50"/>',
@@ -105,8 +125,18 @@ function decorThumbnail(type){
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 52"><rect width="72" height="52" rx="10" fill="#fff1c9"/><path d="M0 45c19-8 49-8 72 0v7H0z" fill="#b7d774"/>${DECOR_ART[type]||''}</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
+function interiorItemMarkup(type){
+  if(type==='sun-rug') return '<span class="interior-item-art art-rug"><i></i><b></b></span>';
+  if(type==='leaf-pot') return '<span class="interior-item-art art-plant"><i></i><i></i><i></i><b></b></span>';
+  if(type==='mood-lamp') return '<span class="interior-item-art art-lamp"><i></i><b></b><em></em></span>';
+  if(type==='soft-cushion') return '<span class="interior-item-art art-cushion"><i></i><b></b></span>';
+  if(type==='book-stack') return '<span class="interior-item-art art-books"><i></i><b></b><em></em></span>';
+  return '<span class="interior-item-art art-basket"><i></i><b></b><em></em></span>';
+}
 function renderDecorOptions(){
-  decorOptions.innerHTML=DECOR_CATEGORIES.map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(type=>{ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }).join('')}</div></section>`).join('');
+  const available=DECOR_CATEGORIES.map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(type=>{ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }).join('')}</div></section>`).join('');
+  const future=`<section class="decor-category future-decor-category" aria-label="곧 공개될 장식"><h3>곧 만날 장식 <span>아직 비공개 · 추후 공개</span></h3><div class="decor-category-grid">${FUTURE_DECOR_OPTIONS.map(label=>`<article class="decor-option locked-decor" aria-label="${label}, 추후 공개"><span class="locked-decor-image">?</span><span class="decor-option-label">${label}</span><small>COMING SOON</small></article>`).join('')}</div></section>`;
+  decorOptions.innerHTML=available+future;
 }
 renderDecorOptions();
 function decodeSharedHome(){
@@ -214,6 +244,7 @@ let memories = sharedHome?.memories ?? JSON.parse(localStorage.getItem(STORAGE_K
 let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREAK_START_KEY) || '');
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = sharedHome?.houseName ?? (localStorage.getItem(HOUSE_NAME_KEY) || '우리');
+let interiorLayout = isSharedHome ? {} : JSON.parse(localStorage.getItem(INTERIOR_LAYOUT_KEY) || '{}');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -281,7 +312,7 @@ const doorPivot=new THREE.Group(); doorPivot.position.set(-.54,.08,2.04); world.
 const doorMesh=box(1.08,1.92,.16,palette.wood,new THREE.Vector3(.54,.96,0),doorPivot); doorMesh.userData.isDoor=true;
 box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,.56,.095),doorPivot);
 mesh(new THREE.SphereGeometry(.085,12,10),mat(0xf6ca4d),new THREE.Vector3(.88,.97,.12),doorPivot);
-let doorOpen=false, doorTargetRotation=0;
+let doorOpen=false, doorTargetRotation=0, interiorOpenTimer=null;
 const OPEN_DOOR_ANGLE=-Math.PI*.47;
 box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09),frontFacade);
 box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09),frontFacade);
@@ -740,9 +771,17 @@ function getDoorAtEvent(event){
   return raycaster.intersectObject(doorPivot,true).length>0;
 }
 function toggleDoor(){
+  if(!isInteriorUnlocked()){
+    const days=recordedDayCount();
+    showCaptureNotice('문은 3일 후에 열려요',`서로 다른 날의 기록이 ${Math.max(INTERIOR_UNLOCK_DAYS-days,0)}일 더 필요해요.`);
+    updateDoorMissionUI();
+    return;
+  }
   doorOpen=!doorOpen;
   doorTargetRotation=doorOpen?OPEN_DOOR_ANGLE:0;
   warmInterior.visible=doorOpen;
+  clearTimeout(interiorOpenTimer);
+  if(doorOpen) interiorOpenTimer=setTimeout(openInterior,520);
 }
 function getGroundPointAtEvent(event){
   const rect=canvas.getBoundingClientRect();
@@ -871,7 +910,7 @@ async function shareCapturedImage(){
 }
 function shareBaseUrl(){
   return (location.hostname==='127.0.0.1'||location.hostname==='localhost')
-    ? 'https://soo7894.github.io/podoal-home/'
+    ? 'https://soo7894.github.io/podoal-home-2026-08-13/'
     : `${location.origin}${location.pathname}`;
 }
 function readCachedShareLink(signature){
@@ -936,12 +975,119 @@ function formatMemoryTimestamp(value){
   return `${date.getMonth()+1}월 ${date.getDate()}일 ${period} ${displayHour}:${String(date.getMinutes()).padStart(2,'0')}`;
 }
 
+function memoryDayKey(value){
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function recordedDayCount(){ return new Set(memories.map(memory=>memoryDayKey(memory.date)).filter(Boolean)).size; }
+function isInteriorUnlocked(){ return recordedDayCount()>=INTERIOR_UNLOCK_DAYS; }
+function updateDoorMissionUI(){
+  const days=recordedDayCount();
+  const progress=Math.min(days,INTERIOR_UNLOCK_DAYS);
+  const unlocked=isInteriorUnlocked();
+  doorMissionBadge.classList.toggle('unlocked',unlocked);
+  doorMissionBadge.querySelector('.door-mission-icon').textContent=unlocked?'🔑':'🔒';
+  doorMissionCopy.textContent=unlocked?'문을 눌러 실내 꾸미기':'3일 기록 후 공개';
+  doorMissionCount.textContent=unlocked?'OPEN':`${progress} / ${INTERIOR_UNLOCK_DAYS}`;
+  doorMissionBadge.setAttribute('aria-label',unlocked?'실내 꾸미기 열기':`문 열기 미션 ${progress}/${INTERIOR_UNLOCK_DAYS}일`);
+}
+function saveInteriorLayout(){ persistLocal(INTERIOR_LAYOUT_KEY,JSON.stringify(interiorLayout)); }
+function ensureInteriorLayout(){
+  let changed=false;
+  INTERIOR_ITEMS.filter(item=>recordedDayCount()>=item.unlockDays).forEach(item=>{
+    if(interiorLayout[item.id]) return;
+    interiorLayout[item.id]={x:item.x,y:item.y,placed:true};
+    changed=true;
+  });
+  if(changed) saveInteriorLayout();
+}
+function renderInteriorItems(){
+  ensureInteriorLayout();
+  const days=recordedDayCount();
+  interiorItems.innerHTML=INTERIOR_ITEMS.filter(item=>days>=item.unlockDays&&interiorLayout[item.id]?.placed!==false).map(item=>{
+    const saved=interiorLayout[item.id]||item;
+    return `<button class="placed-interior-item type-${item.id}" type="button" data-interior-item="${item.id}" style="left:${saved.x}%;top:${saved.y}%" aria-label="${item.label}, 끌어서 이동">${interiorItemMarkup(item.id)}<span class="placed-item-name">${item.label}</span></button>`;
+  }).join('');
+}
+function renderInteriorInventory(){
+  const days=recordedDayCount();
+  const unlocked=INTERIOR_ITEMS.filter(item=>days>=item.unlockDays);
+  interiorItemCount.textContent=`${unlocked.length}개 보유`;
+  interiorInventoryList.innerHTML=INTERIOR_ITEMS.map(item=>{
+    const available=days>=item.unlockDays;
+    const placed=available&&interiorLayout[item.id]?.placed!==false;
+    const status=available?(placed?'방에 배치됨 · 눌러 보관':'획득 완료 · 눌러 방에 놓기'):`${item.unlockDays}번째 기록 후 공개`;
+    return `<button class="inventory-item-card${available?' unlocked':' locked'}${placed?' placed':''}" type="button" data-inventory-item="${item.id}" ${available?'':'aria-disabled="true"'}><span class="inventory-item-preview">${available?interiorItemMarkup(item.id):'<i class="inventory-question">?</i>'}</span><span><b>${available?item.label:'???'}</b><small>${status}</small></span></button>`;
+  }).join('');
+}
+function openInterior(){
+  if(!isInteriorUnlocked()) return;
+  clearTimeout(interiorOpenTimer);
+  interiorHouseName.textContent=`${houseName}네 집`;
+  renderInteriorItems();
+  renderInteriorInventory();
+  interiorView.classList.add('open');
+  interiorView.setAttribute('aria-hidden','false');
+  document.body.classList.add('interior-open');
+  document.querySelector('#close-interior').focus({preventScroll:true});
+}
+function closeInterior(){
+  interiorView.classList.remove('open');
+  interiorView.setAttribute('aria-hidden','true');
+  document.body.classList.remove('interior-open');
+  doorOpen=false;
+  doorTargetRotation=0;
+  warmInterior.visible=false;
+}
+function requestInteriorOpen(){
+  if(!isInteriorUnlocked()) return toggleDoor();
+  if(!doorOpen){ doorOpen=true; doorTargetRotation=OPEN_DOOR_ANGLE; warmInterior.visible=true; }
+  clearTimeout(interiorOpenTimer);
+  interiorOpenTimer=setTimeout(openInterior,360);
+}
+
+let interiorDragState=null;
+function startInteriorDrag(event){
+  const element=event.target.closest('[data-interior-item]');
+  if(!element||isSharedHome) return;
+  event.preventDefault();
+  const bounds=element.getBoundingClientRect();
+  interiorDragState={
+    id:element.dataset.interiorItem,
+    element,
+    offsetX:event.clientX-(bounds.left+bounds.width/2),
+    offsetY:event.clientY-(bounds.top+bounds.height/2)
+  };
+  element.classList.add('dragging');
+  element.setPointerCapture?.(event.pointerId);
+}
+function moveInteriorItem(event){
+  if(!interiorDragState) return;
+  event.preventDefault();
+  const bounds=interiorRoom.getBoundingClientRect();
+  const x=Math.min(95,Math.max(5,((event.clientX-interiorDragState.offsetX-bounds.left)/bounds.width)*100));
+  const y=Math.min(88,Math.max(18,((event.clientY-interiorDragState.offsetY-bounds.top)/bounds.height)*100));
+  interiorDragState.element.style.left=`${x}%`;
+  interiorDragState.element.style.top=`${y}%`;
+  interiorLayout[interiorDragState.id]={...(interiorLayout[interiorDragState.id]||{}),x,y,placed:true};
+}
+function finishInteriorDrag(){
+  if(!interiorDragState) return;
+  interiorDragState.element.classList.remove('dragging');
+  interiorDragState=null;
+  saveInteriorLayout();
+}
+
 function renderRecords(){
   const total = memories.length+2; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
   previewCount.textContent=`장식 ${String(total).padStart(2,'0')}개`;
   if(memories[0]) todayPreview.innerHTML=memories[0].text.replace(/(.{17})/g,'$1<br>');
   const shown = memories.slice(0,3).map(m=>`<li><span class="memory-dot ${m.decor}">${DECOR_INFO[m.decor]?.icon||'✦'}</span><div><b>${escapeHTML(m.text)}</b><small>${formatMemoryTimestamp(m.date)}</small></div></li>`).join('');
   if(shown) recentList.innerHTML=shown;
+  updateDoorMissionUI();
+  renderInteriorInventory();
+  if(interiorView.classList.contains('open')) renderInteriorItems();
 }
 function escapeHTML(text){ const el=document.createElement('div');el.textContent=text;return el.innerHTML; }
 renderRecords();
@@ -1103,6 +1249,33 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
 document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });
+
+doorMissionBadge.addEventListener('click',requestInteriorOpen);
+document.querySelector('#close-interior').addEventListener('click',closeInterior);
+interiorItems.addEventListener('pointerdown',startInteriorDrag);
+document.addEventListener('pointermove',moveInteriorItem,{passive:false});
+document.addEventListener('pointerup',finishInteriorDrag);
+document.addEventListener('pointercancel',finishInteriorDrag);
+interiorInventoryList.addEventListener('click',event=>{
+  const button=event.target.closest('[data-inventory-item]');
+  if(!button) return;
+  const item=INTERIOR_ITEMS.find(candidate=>candidate.id===button.dataset.inventoryItem);
+  if(!item) return;
+  if(recordedDayCount()<item.unlockDays){
+    showCaptureNotice('아직 비공개인 아이템이에요',`${item.unlockDays}번째 기록을 남기면 이름과 모습이 공개돼요.`);
+    return;
+  }
+  if(isSharedHome){
+    showCaptureNotice('공유받은 집이에요','실내 아이템은 원래 주인만 움직일 수 있어요.');
+    return;
+  }
+  const current=interiorLayout[item.id]||{x:item.x,y:item.y,placed:false};
+  interiorLayout[item.id]={...current,placed:current.placed===false};
+  saveInteriorLayout();
+  renderInteriorItems();
+  renderInteriorInventory();
+});
+document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&interiorView.classList.contains('open')) closeInterior(); });
 
 document.querySelector('#open-manager').addEventListener('click',openManager);
 document.querySelector('#close-manager').addEventListener('click',closeManager);

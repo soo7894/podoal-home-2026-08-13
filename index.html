@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=6" />
+    <link rel="stylesheet" href="./styles.css?v=7" />
   </head>
   <body>
     <main class="app-shell">
@@ -55,6 +55,11 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.2"/><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="19" r="2.2"/><path d="m8 11 7.9-4.8M8 13l7.9 4.8"/></svg>
           </button>
           <button class="scene-help-button" id="open-guide" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.1a2.45 2.45 0 0 1 4.63 1.12c0 1.72-1.94 2.07-2.3 3.35"/><path d="M12 16.75h.01"/></svg><span>조작법</span></button>
+          <button class="door-mission-badge" id="door-mission-badge" type="button" aria-label="실내 공개 미션 확인">
+            <span class="door-mission-icon" aria-hidden="true">🔒</span>
+            <span><b>문 열기</b><small id="door-mission-copy">3일 기록 후 공개</small></span>
+            <i id="door-mission-count">0 / 3</i>
+          </button>
           <div class="scene-hint"><span>↔↕</span> 좌우·위아래로 보고, 장식은 끌어 놓기</div>
         </div>
 
@@ -167,11 +172,73 @@
           <li><b>1</b><span><strong>잘한 일 기록</strong>왼쪽의 ‘오늘의 잘한 일 기록하기’를 눌러요.</span></li>
           <li><b>2</b><span><strong>장식 배치</strong>생긴 장식을 끌어서 집 밖 원하는 곳에 놓아요.</span></li>
           <li><b>3</b><span><strong>집 둘러보기</strong>빈 공간을 드래그하면 집을 회전하고 위아래 시점도 바뀌어요.</span></li>
+          <li><b>4</b><span><strong>3일 미션</strong>서로 다른 3일에 기록하면 문을 열고 따뜻한 실내를 꾸밀 수 있어요.</span></li>
         </ol>
         <button class="primary-button save-button" id="finish-guide" type="button">시작하기 <span>→</span></button>
       </section>
     </div>
+
+    <section class="interior-view" id="interior-view" aria-hidden="true" aria-labelledby="interior-title">
+      <header class="interior-header">
+        <button class="interior-back" id="close-interior" type="button"><span aria-hidden="true">←</span> 마당으로</button>
+        <div>
+          <p>MY WARM LITTLE HOME</p>
+          <h2 id="interior-title"><span id="interior-house-name">우리네 집</span>의 따뜻한 원룸</h2>
+        </div>
+        <span class="interior-mission-complete"><i>✓</i> 3일 미션 완료</span>
+      </header>
+
+      <div class="interior-content">
+        <div class="interior-stage" id="interior-stage">
+          <div class="interior-room" id="interior-room" aria-label="꾸밀 수 있는 집 실내">
+            <div class="interior-wall">
+              <span class="wall-panel panel-one"></span><span class="wall-panel panel-two"></span>
+              <div class="interior-window" aria-hidden="true"><i></i><i></i><span></span></div>
+              <div class="interior-picture" aria-hidden="true"><i></i><b></b><em></em></div>
+              <div class="room-pendant" aria-hidden="true"><i></i><b></b></div>
+            </div>
+            <div class="interior-floor" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+            <section class="room-zone dining-zone" aria-label="식탁과 부엌">
+              <span class="zone-label">식탁 · 부엌</span>
+              <div class="kitchen-counter" aria-hidden="true"><i></i><i></i><b></b><em></em></div>
+              <div class="dining-table" aria-hidden="true"><i></i><b></b><em></em><span></span></div>
+            </section>
+
+            <section class="room-zone bedroom-zone" aria-label="침실">
+              <span class="zone-label">포근한 침실</span>
+              <div class="toy-bed" aria-hidden="true"><i></i><b></b><em></em><span></span></div>
+              <div class="bedside" aria-hidden="true"><i></i><b></b></div>
+            </section>
+
+            <section class="room-zone bathroom-zone" aria-label="화장실과 욕실">
+              <span class="zone-label">작은 욕실</span>
+              <div class="bath-partition" aria-hidden="true"></div>
+              <div class="toy-bath" aria-hidden="true"><i></i><b></b></div>
+              <div class="toy-sink" aria-hidden="true"><i></i><b></b><em></em></div>
+            </section>
+
+            <div class="interior-doorway" aria-label="마당이 보이는 열린 문">
+              <div class="doorway-sky"><i></i><b></b></div><span></span>
+            </div>
+            <div class="interior-items" id="interior-items"></div>
+          </div>
+        </div>
+
+        <aside class="interior-inventory" aria-label="실내 꾸미기 보관함">
+          <div class="inventory-heading">
+            <div><p>MY INTERIOR ITEMS</p><h3>실내 꾸미기 보관함</h3></div>
+            <span id="interior-item-count">0개 보유</span>
+          </div>
+          <p class="inventory-help">획득한 아이템을 눌러 꺼낸 뒤, 방 안에서 끌어 원하는 곳에 놓아보세요.</p>
+          <div class="inventory-list" id="interior-inventory-list"></div>
+          <section class="future-room-card">
+            <span>?</span><div><b>새로운 방과 가구</b><small>아직 비공개 · 다음 업데이트에 공개돼요</small></div>
+          </section>
+        </aside>
+      </div>
+    </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=94"></script>
+    <script type="module" src="./main.js?v=95"></script>
   </body>
 </html>

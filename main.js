@@ -110,6 +110,8 @@ let editingMemoryDate = null;
 let currentRewardAction = null;
 let adminPreviewActive = false;
 let adminInteriorLayout = {};
+let adminPreviewRewards = {rareItem:'',exteriorStyle:''};
+let adminDecorLayoutSnapshot = null;
 const DECOR_OPTIONS = [
   ['flower','✿','꽃 화분'],['lamp','☀','작은 조명'],['book','▤','책 더미'],['flag','⚑','응원 깃발'],['tree','♟','작은 나무'],['bigtree','♟','큰 나무'],['bench','▰','나무 벤치'],
   ['fountain','⛲','분수'],['birdhouse','⌂','새집'],['mailbox','✉','우편함'],['fence','▥','울타리'],['swing','♧','그네'],['bicycle','◎','자전거'],
@@ -290,7 +292,7 @@ adminPreviewButton.hidden=!adminPreviewAllowed;
 const sharedView=sharedHome?.view||{};
 const sharedRotation=Number.isFinite(sharedView.rotation)?sharedView.rotation:.44;
 const sharedCameraHeight=Number.isFinite(sharedView.cameraHeight)?sharedView.cameraHeight:6.3;
-function persistLocal(key,value){ if(!isSharedHome) localStorage.setItem(key,value); }
+function persistLocal(key,value){ if(!isSharedHome&&!adminPreviewActive) localStorage.setItem(key,value); }
 let memories = sharedHome?.memories ?? JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREAK_START_KEY) || '');
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
@@ -513,7 +515,12 @@ for (const x of [-1.66,1.66]) { box(.12,1.62,.09,palette.cream,new THREE.Vector3
 const windowPanels=frontFacade.children.filter(child=>child.material?.color?.getHex()===palette.blue);
 const windowAwnings=frontFacade.children.filter(child=>child.material?.color?.getHex()===palette.roof);
 function applyExteriorReward(){
-  const style=EXTERIOR_REWARD_OPTIONS.find(option=>option.id===milestoneRewards.exteriorStyle);
+  roof.material.color.setHex(palette.roof);
+  doorMesh.material.color.setHex(palette.wood);
+  windowPanels.forEach(panel=>panel.material.color.setHex(palette.blue));
+  windowAwnings.forEach(awning=>awning.material.color.setHex(palette.roof));
+  const rewardState=adminPreviewActive?adminPreviewRewards:milestoneRewards;
+  const style=EXTERIOR_REWARD_OPTIONS.find(option=>option.id===rewardState.exteriorStyle);
   if(!style) return;
   roof.material.color.setHex(style.roof);
   doorMesh.material.color.setHex(style.door);
@@ -1205,14 +1212,15 @@ function monthlyRecordedDayCount(date=new Date()){
   return new Set(memories.map(memory=>memoryDayKey(memory.date)).filter(day=>day.startsWith(prefix))).size;
 }
 function milestoneRewardClaimed(action){
-  if(action==='rare') return Boolean(milestoneRewards.rareItem);
-  if(action==='exterior') return Boolean(milestoneRewards.exteriorStyle);
+  const rewardState=adminPreviewActive?adminPreviewRewards:milestoneRewards;
+  if(action==='rare') return Boolean(rewardState.rareItem);
+  if(action==='exterior') return Boolean(rewardState.exteriorStyle);
   return false;
 }
 function renderRewardJourney(){
-  const days=recordedDayCount();
+  const days=adminPreviewActive?REWARD_MILESTONES.at(-1).days:recordedDayCount();
   const next=REWARD_MILESTONES.find(milestone=>days<milestone.days||(milestone.action&&!milestoneRewardClaimed(milestone.action)));
-  rewardTotalDays.textContent=`누적 ${days}일`;
+  rewardTotalDays.textContent=adminPreviewActive?'관리자 · 전체 공개':`누적 ${days}일`;
   rewardMilestones.innerHTML=REWARD_MILESTONES.map(milestone=>{
     const reached=days>=milestone.days;
     const claimed=milestone.action?milestoneRewardClaimed(milestone.action):reached;
@@ -1220,7 +1228,7 @@ function renderRewardJourney(){
     const classes=['reward-milestone',reached&&claimed?'completed':'locked',current?'current':'',milestone.longGoal?'long-goal':''].filter(Boolean).join(' ');
     let footer=`<span class="reward-status">${reached?'✓ 달성 완료':`${Math.min(days,milestone.days)} / ${milestone.days}일`}</span>`;
     if(reached&&milestone.action&&!claimed) footer=`<button type="button" data-open-reward="${milestone.action}">선물 고르기 →</button>`;
-    if(claimed&&milestone.action) footer='<span class="reward-status">✓ 선택 완료</span>';
+    if(claimed&&milestone.action) footer=adminPreviewActive?`<button type="button" data-open-reward="${milestone.action}">다른 선택 체험 →</button>`:'<span class="reward-status">✓ 선택 완료</span>';
     return `<article class="${classes}"><span class="reward-day">${milestone.days}일${reached?'<i>✓</i>':''}</span><h4>${milestone.title}</h4><p>${milestone.description}</p>${footer}</article>`;
   }).join('');
 }
@@ -1229,7 +1237,7 @@ function hexColor(value){ return `#${value.toString(16).padStart(6,'0')}`; }
 function openRewardModal(action){
   if(isSharedHome){ showCaptureNotice('공유받은 집이에요','보상은 집의 원래 주인만 선택할 수 있어요.'); return; }
   const requiredDays=action==='rare'?7:14;
-  if(recordedDayCount()<requiredDays) return;
+  if(!adminPreviewActive&&recordedDayCount()<requiredDays) return;
   currentRewardAction=action;
   if(action==='rare'){
     rewardModalTitle.innerHTML='7일의 잘한 나에게<br /><em>희귀 아이템 선물</em>';
@@ -1249,6 +1257,28 @@ function closeRewardModal(){
   currentRewardAction=null;
 }
 function chooseMilestoneReward(choice){
+  if(adminPreviewActive&&currentRewardAction==='rare'){
+    const reward=RARE_REWARD_OPTIONS.find(option=>option.id===choice);
+    if(!reward) return;
+    adminPreviewRewards.rareItem=choice;
+    rebuildDecorations();
+    addDecoration(choice,memories.length+12,true,`관리자 체험 · ${reward.label}`,'admin-preview-rare');
+    settleGroundDecorations();
+    closeRewardModal();
+    renderRewardJourney();
+    showCaptureNotice(`${reward.label} 체험 중`,`관리자 미리보기 장식이며 실제 보상에는 저장되지 않아요.`);
+    return;
+  }
+  if(adminPreviewActive&&currentRewardAction==='exterior'){
+    const style=EXTERIOR_REWARD_OPTIONS.find(option=>option.id===choice);
+    if(!style) return;
+    adminPreviewRewards.exteriorStyle=choice;
+    applyExteriorReward();
+    closeRewardModal();
+    renderRewardJourney();
+    showCaptureNotice(`${style.label} 체험 중`,'관리자 미리보기 외관이며 실제 선택에는 저장되지 않아요.');
+    return;
+  }
   if(currentRewardAction==='rare'&&!milestoneRewards.rareItem){
     const reward=RARE_REWARD_OPTIONS.find(option=>option.id===choice);
     if(!reward) return;
@@ -1346,10 +1376,23 @@ function createAdminInteriorLayout(){
     return [item.id,{x:saved.x,y:saved.y,placed:true}];
   }));
 }
+function enableAdminPreview(){
+  if(adminPreviewActive||!adminPreviewAllowed) return;
+  adminDecorLayoutSnapshot=JSON.parse(JSON.stringify(decorLayout));
+  adminPreviewRewards={rareItem:'',exteriorStyle:''};
+  createAdminInteriorLayout();
+  adminPreviewActive=true;
+  adminPreviewButton.classList.add('active');
+  document.body.classList.add('admin-preview-active');
+  updateDoorMissionUI();
+  renderRewardJourney();
+  renderInteriorInventory();
+}
 function openAdminPreview(){
   if(!adminPreviewAllowed) return;
+  enableAdminPreview();
   adminPreviewStatus.classList.toggle('active',adminPreviewActive);
-  adminPreviewStatus.querySelector('span').textContent=adminPreviewActive?'관리자 체험 중이에요. 실제 기록과 배치에는 저장되지 않아요.':'현재 실제 기록을 기준으로 보고 있어요.';
+  adminPreviewStatus.querySelector('span').textContent='현재 구현된 잠금 기능이 모두 열렸어요. 체험 내용은 실제 기록과 선택에 저장되지 않아요.';
   stopAdminPreviewButton.hidden=!adminPreviewActive;
   adminPreviewBackdrop.classList.add('open');
   adminPreviewBackdrop.setAttribute('aria-hidden','false');
@@ -1360,30 +1403,33 @@ function closeAdminPreview(){
 }
 function startAdminPreview(mode){
   if(!adminPreviewAllowed) return;
-  if(!adminPreviewActive) createAdminInteriorLayout();
-  adminPreviewActive=true;
-  adminPreviewButton.classList.add('active');
-  document.body.classList.add('admin-preview-active');
+  enableAdminPreview();
   closeAdminPreview();
-  updateDoorMissionUI();
   if(mode==='door'){
     closeInterior();
     requestInteriorOpen();
     showCaptureNotice('관리자 문 열림 체험','잠시 후 실내 화면으로 이어집니다. 실제 기록은 바뀌지 않아요.');
-  }else{
+  }else if(mode==='items'){
     openInterior();
     showCaptureNotice('관리자 아이템 배치 체험','모든 실내 아이템을 자유롭게 움직여 보세요. 체험 배치는 저장되지 않아요.');
+  }else{
+    document.querySelector('.reward-journey')?.scrollIntoView({behavior:'smooth',block:'center'});
+    showCaptureNotice('관리자 보상 체험','희귀 장식과 외관 변경을 날짜와 관계없이 선택할 수 있어요.');
   }
 }
 function stopAdminPreview(){
   closeInterior();
   adminPreviewActive=false;
   adminInteriorLayout={};
+  adminPreviewRewards={rareItem:'',exteriorStyle:''};
+  if(adminDecorLayoutSnapshot) decorLayout=adminDecorLayoutSnapshot;
+  adminDecorLayoutSnapshot=null;
   adminPreviewButton.classList.remove('active');
   document.body.classList.remove('admin-preview-active');
   closeAdminPreview();
-  updateDoorMissionUI();
-  renderInteriorInventory();
+  applyExteriorReward();
+  rebuildDecorations();
+  renderRecords();
   showCaptureNotice('관리자 체험을 끝냈어요','기존 기록과 아이템 배치는 그대로 유지되어 있어요.');
 }
 

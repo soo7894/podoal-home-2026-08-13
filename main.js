@@ -461,10 +461,34 @@ interiorBox(.20,.16,7.08,palette.trim,new THREE.Vector3(3.31,.19,0),interiorRoom
 interiorBox(1.04,.13,.24,palette.wood,new THREE.Vector3(-2.43,2.57,-3.31),interiorRoomBackWall);
 interiorBox(.13,2.45,.24,palette.wood,new THREE.Vector3(-2.99,1.35,-3.31),interiorRoomBackWall);
 interiorBox(.13,2.45,.24,palette.wood,new THREE.Vector3(-1.87,1.35,-3.31),interiorRoomBackWall);
-interiorBox(1.0,1.22,.05,0xaed8dc,new THREE.Vector3(-2.43,1.91,-3.57),interiorRoomBackWall);
-interiorBox(1.0,1.16,.05,0x9acb70,new THREE.Vector3(-2.43,.72,-3.57),interiorRoomBackWall);
-interiorSphere(.34,palette.leaf,new THREE.Vector3(-2.68,.94,-3.48),interiorRoomBackWall);
-interiorCylinder(.07,.09,.62,palette.wood,new THREE.Vector3(-2.68,.45,-3.48),interiorRoomBackWall);
+
+// Build the outside as a deep 3D scene. The former sky and lawn panels were
+// close to the doorway, so they read as another wall instead of open space.
+const interiorExteriorWorld=new THREE.Group();
+interiorExteriorWorld.visible=false;
+interiorWorld.add(interiorExteriorWorld);
+interiorBox(8.6,.16,7.4,0x9acb70,new THREE.Vector3(-2.43,.02,-7.18),interiorExteriorWorld);
+interiorBox(9.8,5.8,.12,0xaed8dc,new THREE.Vector3(-2.43,2.75,-10.94),interiorExteriorWorld);
+
+const distantHillLeft=interiorSphere(1.72,0x7eaa64,new THREE.Vector3(-5.20,.46,-9.98),interiorExteriorWorld);
+distantHillLeft.scale.set(1.65,.58,.48);
+const distantHillRight=interiorSphere(1.62,0x88b868,new THREE.Vector3(.12,.42,-10.02),interiorExteriorWorld);
+distantHillRight.scale.set(1.72,.54,.46);
+interiorSphere(.30,0xf6ca48,new THREE.Vector3(.42,3.72,-10.78),interiorExteriorWorld);
+
+for(let index=0;index<6;index++){
+  const gardenStep=interiorSphere(.34,0xf0c97a,new THREE.Vector3(-2.43+(index%2?.055:-.055),.12,-3.86-index*.68),interiorExteriorWorld);
+  gardenStep.scale.set(1.18,.15,.74);
+}
+
+function addInteriorGardenTree(x,z,scale=1){
+  interiorCylinder(.10*scale,.14*scale,.82*scale,palette.wood,new THREE.Vector3(x,.48*scale,z),interiorExteriorWorld,14);
+  const crown=interiorSphere(.48*scale,palette.leaf,new THREE.Vector3(x,.98*scale,z),interiorExteriorWorld);
+  crown.scale.set(1.05,1.18,.92);
+  interiorSphere(.32*scale,0x648f56,new THREE.Vector3(x-.29*scale,.88*scale,z+.03),interiorExteriorWorld);
+}
+addInteriorGardenTree(-4.34,-6.28,.94);
+addInteriorGardenTree(-.52,-7.08,.80);
 
 // The entrance is a real moving door. Opening it reveals the same warm garden palette outside.
 const interiorEntranceDoorPivot=new THREE.Group();
@@ -480,7 +504,7 @@ let interiorEntranceDoorTarget=0;
 const INTERIOR_ENTRANCE_OPEN_ANGLE=Math.PI*.48;
 
 const interiorGardenDecorGroup=new THREE.Group();
-interiorRoomBackWall.add(interiorGardenDecorGroup);
+interiorExteriorWorld.add(interiorGardenDecorGroup);
 function clearThreeGroup(group){
   group.children.slice().forEach(child=>{
     child.traverse(object=>{ object.geometry?.dispose?.(); if(object.material){ const materials=Array.isArray(object.material)?object.material:[object.material]; materials.forEach(material=>material.dispose?.()); } });
@@ -492,9 +516,10 @@ function syncInteriorGardenPreview(){
   const visibleDecor=placed.children.filter(decoration=>decoration.userData.memoryText&&!decoration.userData.isRoofDecoration).slice(0,8);
   visibleDecor.forEach((decoration,index)=>{
     const group=new THREE.Group();
-    const x=-2.43+THREE.MathUtils.clamp(decoration.position.x/5,-.42,.42);
-    const z=-3.60-index*.035;
-    group.position.set(x,.20,z);
+    const side=index%2===0?-1:1;
+    const x=-2.43+side*(1.06+(index%3)*.34)+THREE.MathUtils.clamp(decoration.position.x/12,-.18,.18);
+    const z=-5.08-Math.floor(index/2)*.66-THREE.MathUtils.clamp(Math.abs(decoration.position.z)/18,0,.28);
+    group.position.set(x,.14,z);
     const type=decoration.userData.type;
     if(['tree','bigtree','topiary'].includes(type)){
       interiorCylinder(.025,.035,.25,palette.wood,new THREE.Vector3(0,.13,0),group,10);
@@ -511,8 +536,9 @@ function syncInteriorGardenPreview(){
 function toggleInteriorEntranceDoor(){
   interiorEntranceDoorOpen=!interiorEntranceDoorOpen;
   interiorEntranceDoorTarget=interiorEntranceDoorOpen?INTERIOR_ENTRANCE_OPEN_ANGLE:0;
+  interiorExteriorWorld.visible=interiorEntranceDoorOpen;
   if(interiorEntranceDoorOpen) syncInteriorGardenPreview();
-  roomActionDescription.textContent=interiorEntranceDoorOpen?'열린 문 너머로 지금의 마당이 보여요.':'문을 열면 내가 꾸민 마당이 그대로 보여요.';
+  roomActionDescription.textContent=interiorEntranceDoorOpen?'열린 문 너머로 길과 마당이 깊게 이어져요.':'문을 열면 내가 꾸민 마당이 그대로 보여요.';
   if(activeInteriorRoomId==='entry') renderInteriorActivities();
 }
 

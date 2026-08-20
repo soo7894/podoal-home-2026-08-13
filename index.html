@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=24" />
+    <link rel="stylesheet" href="./styles.css?v=25" />
   </head>
   <body>
     <main class="app-shell">
@@ -111,6 +111,16 @@
           </ul>
           <button class="text-button" id="open-manager" type="button">기록 관리하기 →</button>
         </div>
+        <section class="future-letter-card" id="future-letter-card" aria-labelledby="future-letter-card-title">
+          <span class="future-letter-envelope" aria-hidden="true"><i></i><b>♥</b></span>
+          <div>
+            <p class="mini-title">LETTER TO FUTURE ME</p>
+            <h3 id="future-letter-card-title">15일 뒤의 나에게</h3>
+            <p id="future-letter-card-copy">첫 기록을 남기면 미래의 나에게 편지를 보낼 수 있어요.</p>
+          </div>
+          <span class="future-letter-countdown" id="future-letter-countdown">준비 중</span>
+          <button id="open-future-letter" type="button" disabled>첫 기록 후 열려요 <span>→</span></button>
+        </section>
         <section class="reward-journey" aria-labelledby="reward-journey-title">
           <div class="reward-journey-head">
             <div><p class="mini-title">MY WARM REWARD JOURNEY</p><h3 id="reward-journey-title">잘한 일이 쌓일수록 집도 자라요</h3></div>
@@ -129,6 +139,10 @@
         <h2 id="entry-title">오늘, 무엇을<br /><em>잘 해냈나요?</em></h2>
         <label for="memory-input">잘한 일을 짧게 적어 주세요</label>
         <input id="memory-input" maxlength="42" placeholder="예: 산책을 하며 나에게 집중했다" autocomplete="off" />
+        <section class="active-letter-theme" id="active-letter-theme" hidden>
+          <div><span aria-hidden="true">✉</span><p><b id="active-letter-theme-title">이번 15일의 응원</b><small id="active-letter-theme-copy"></small></p></div>
+          <label><input type="checkbox" id="memory-focus-related" checked /><span>이번 응원 주제와 연결된 기록이에요</span></label>
+        </section>
         <p class="choose-label">이 기억을 어떤 장식으로 남길까요? <b>32가지</b></p>
         <div class="decor-options" id="decor-options" aria-label="집과 정원 장식 고르기"></div>
         <button class="primary-button save-button" id="save-memory">이 장식을 집에 놓기 <span>→</span></button>
@@ -192,6 +206,15 @@
           <button class="primary-button reminder-save" id="save-reminders" type="button">설정 저장하기 <span>→</span></button>
           <button class="calendar-button" id="download-reminders" type="button">캘린더에 반복 알림 추가</button>
         </div>
+      </section>
+    </div>
+
+    <div class="entry-backdrop future-letter-backdrop" id="future-letter-backdrop" aria-hidden="true">
+      <section class="future-letter-modal" role="dialog" aria-modal="true" aria-labelledby="future-letter-title">
+        <button class="close-modal" id="close-future-letter" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> LETTER TO FUTURE ME</p>
+        <h2 id="future-letter-title">15일 뒤의<br /><em>나에게</em></h2>
+        <div id="future-letter-content"></div>
       </section>
     </div>
 
@@ -301,6 +324,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=112"></script>
+    <script type="module" src="./main.js?v=113"></script>
   </body>
 </html>

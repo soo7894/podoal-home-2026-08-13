@@ -31,6 +31,18 @@ const reminderBackdrop = document.querySelector('#reminder-backdrop');
 const reminderList = document.querySelector('#reminder-list');
 const saveRemindersButton = document.querySelector('#save-reminders');
 const downloadRemindersButton = document.querySelector('#download-reminders');
+const futureLetterCard = document.querySelector('#future-letter-card');
+const futureLetterCardTitle = document.querySelector('#future-letter-card-title');
+const futureLetterCardCopy = document.querySelector('#future-letter-card-copy');
+const futureLetterCountdown = document.querySelector('#future-letter-countdown');
+const openFutureLetterButton = document.querySelector('#open-future-letter');
+const futureLetterBackdrop = document.querySelector('#future-letter-backdrop');
+const futureLetterTitle = document.querySelector('#future-letter-title');
+const futureLetterContent = document.querySelector('#future-letter-content');
+const activeLetterTheme = document.querySelector('#active-letter-theme');
+const activeLetterThemeTitle = document.querySelector('#active-letter-theme-title');
+const activeLetterThemeCopy = document.querySelector('#active-letter-theme-copy');
+const memoryFocusRelated = document.querySelector('#memory-focus-related');
 const decorTooltip = document.querySelector('#decor-tooltip');
 const houseNameEditor = document.querySelector('#house-name-editor');
 const houseNameButton = document.querySelector('#house-name-button');
@@ -88,8 +100,10 @@ const INTERIOR_STYLE_KEY = 'my-little-day-interior-style-v1';
 const REMINDER_STORAGE_KEY = 'my-little-day-reminders-v1';
 const REMINDER_LAST_FIRED_KEY = 'my-little-day-reminder-last-fired-v1';
 const MILESTONE_REWARDS_KEY = 'my-little-day-milestone-rewards-v1';
+const FUTURE_LETTERS_KEY = 'my-little-day-future-letters-v1';
 const MONTHLY_TARGET_DAYS = 15;
 const INTERIOR_UNLOCK_DAYS = 3;
+const FUTURE_LETTER_DAYS = 15;
 const SHARE_HASH_PREFIX = '#my-little-home=';
 const SHARE_ID_PREFIX = '#share=';
 const SHARE_LINK_CACHE_KEY = 'my-little-day-last-share-link-v1';
@@ -127,6 +141,8 @@ let adminPreviewActive = false;
 let adminFutureDecorCounter = 0;
 let activeInteriorRoomId = 'living';
 let activeInteriorInventoryCategory = 'items';
+let selectedFutureLetterId = '';
+let futureLetterComposeSeed = null;
 let adminInteriorLayout = {};
 let adminInteriorStyle = {};
 let adminPreviewRewards = {rareItem:'',exteriorStyle:''};
@@ -404,6 +420,14 @@ function loadInteriorStyle(){
   };
 }
 let interiorStyle=isSharedHome?{wallpaper:'sun-cream',floor:'honey-wood',wallDecor:{}}:loadInteriorStyle();
+function loadFutureLetters(){
+  if(isSharedHome) return [];
+  try {
+    const saved=JSON.parse(localStorage.getItem(FUTURE_LETTERS_KEY)||'[]');
+    return Array.isArray(saved)?saved.filter(letter=>letter&&typeof letter.content==='string'&&letter.createdAt&&letter.deliverAt):[];
+  } catch { return []; }
+}
+let futureLetters=loadFutureLetters();
 function loadMilestoneRewards(){
   try { return JSON.parse(localStorage.getItem(MILESTONE_REWARDS_KEY)||'{}')||{}; }
   catch { return {}; }
@@ -2048,6 +2072,142 @@ function finishInteriorControl(event){
   interiorCanvas.style.cursor='grab';
 }
 
+function saveFutureLetters(){ persistLocal(FUTURE_LETTERS_KEY,JSON.stringify(futureLetters)); }
+function futureLetterDelivered(letter){ return Date.now()>=new Date(letter.deliverAt).getTime(); }
+function futureLetterDaysLeft(letter){ return Math.max(0,Math.ceil((new Date(letter.deliverAt).getTime()-Date.now())/86400000)); }
+function futureLetterDateLabel(value){ const date=new Date(value); return Number.isNaN(date.getTime())?'도착일 미정':`${date.getFullYear()}년 ${date.getMonth()+1}월 ${date.getDate()}일`; }
+function pendingFutureLetter(){ return [...futureLetters].reverse().find(letter=>!letter.openedAt)||null; }
+function latestOpenedFutureLetter(){ return [...futureLetters].reverse().find(letter=>letter.openedAt)||null; }
+function activeFutureLetterForRecording(){ return [...futureLetters].reverse().find(letter=>!letter.openedAt&&!futureLetterDelivered(letter))||null; }
+function futureLetterArchiveMarkup(currentId=''){
+  const archived=[...futureLetters].filter(letter=>letter.openedAt&&letter.id!==currentId).reverse().slice(0,4);
+  if(!archived.length) return '';
+  return `<section class="future-letter-archive"><p class="mini-title">PAST LETTERS</p>${archived.map(letter=>`<button type="button" data-open-past-letter="${letter.id}"><span>✉</span><b>${futureLetterDateLabel(letter.createdAt)}의 편지</b><small>${letter.mode==='focus'?escapeHTML(letter.theme||'한 가지 응원'):'전반적인 나를 위한 응원'}</small></button>`).join('')}</section>`;
+}
+function updateActiveLetterTheme(){
+  const letter=activeFutureLetterForRecording();
+  if(!letter){ activeLetterTheme.hidden=true; return; }
+  activeLetterTheme.hidden=false;
+  activeLetterThemeTitle.textContent=letter.mode==='focus'?`이번 15일의 응원 · ${letter.theme}`:'이번 15일은 전반적인 나를 칭찬해요';
+  activeLetterThemeCopy.textContent=`${futureLetterDateLabel(letter.deliverAt)}에 편지가 도착해요.`;
+  memoryFocusRelated.parentElement.hidden=letter.mode!=='focus';
+  memoryFocusRelated.checked=true;
+}
+function renderFutureLetterCard(){
+  const pending=pendingFutureLetter();
+  const latest=latestOpenedFutureLetter();
+  futureLetterCard.classList.remove('waiting','arrived','opened','locked');
+  if(isSharedHome){
+    futureLetterCard.classList.add('locked');
+    futureLetterCardTitle.textContent='주인만 볼 수 있는 미래 편지함';
+    futureLetterCardCopy.textContent='편지 내용은 공유된 집에 포함되지 않고 안전하게 비공개로 남아요.';
+    futureLetterCountdown.textContent='비공개';
+    openFutureLetterButton.disabled=true; openFutureLetterButton.innerHTML='주인 전용 <span>→</span>';
+    return;
+  }
+  if(pending){
+    if(futureLetterDelivered(pending)){
+      futureLetterCard.classList.add('arrived');
+      futureLetterCardTitle.textContent='15일 전의 편지가 도착했어요';
+      futureLetterCardCopy.textContent='과거의 내가 남긴 다정한 말을 지금 열어보세요.';
+      futureLetterCountdown.textContent='도착';
+      openFutureLetterButton.disabled=false; openFutureLetterButton.innerHTML='편지 열기 <span>→</span>';
+    }else{
+      const left=futureLetterDaysLeft(pending);
+      futureLetterCard.classList.add('waiting');
+      futureLetterCardTitle.textContent=pending.mode==='focus'?`${pending.theme}을 응원하는 편지`:'15일 뒤의 나를 위한 편지';
+      futureLetterCardCopy.textContent=`${futureLetterDateLabel(pending.deliverAt)}까지 안전하게 보관하고 있어요.`;
+      futureLetterCountdown.textContent=`D-${left}`;
+      openFutureLetterButton.disabled=false; openFutureLetterButton.innerHTML='봉인한 편지 보기 <span>→</span>';
+    }
+    return;
+  }
+  if(latest){
+    futureLetterCard.classList.add('opened');
+    futureLetterCardTitle.textContent='지난 편지를 다시 만나보세요';
+    futureLetterCardCopy.textContent='편지를 읽고 다시 15일 뒤의 나에게 답장할 수 있어요.';
+    futureLetterCountdown.textContent='보관 중';
+    openFutureLetterButton.disabled=false; openFutureLetterButton.innerHTML='편지함 열기 <span>→</span>';
+    return;
+  }
+  if(memories.length){
+    futureLetterCardTitle.textContent='15일 뒤의 나에게';
+    futureLetterCardCopy.textContent='전체의 나 또는 한 가지 응원 주제를 골라 편지를 보내보세요.';
+    futureLetterCountdown.textContent='15일';
+    openFutureLetterButton.disabled=false; openFutureLetterButton.innerHTML='편지 쓰기 <span>→</span>';
+  }else{
+    futureLetterCard.classList.add('locked');
+    futureLetterCardTitle.textContent='15일 뒤의 나에게';
+    futureLetterCardCopy.textContent='첫 기록을 남기면 미래의 나에게 편지를 보낼 수 있어요.';
+    futureLetterCountdown.textContent='준비 중';
+    openFutureLetterButton.disabled=true; openFutureLetterButton.innerHTML='첫 기록 후 열려요 <span>→</span>';
+  }
+}
+function notifyArrivedFutureLetter(){
+  const arrived=[...futureLetters].reverse().find(letter=>!letter.openedAt&&!letter.notifiedAt&&futureLetterDelivered(letter));
+  if(!arrived) return;
+  arrived.notifiedAt=new Date().toISOString(); saveFutureLetters();
+  showCaptureNotice('✉ 15일 전의 편지가 도착했어요','과거의 내가 남긴 말을 미래 편지함에서 열어보세요.');
+}
+function renderFutureLetterCompose(){
+  const seed=futureLetterComposeSeed||{mode:'general',theme:'',envelope:'peach'};
+  futureLetterTitle.innerHTML='15일 뒤의<br /><em>나에게</em>';
+  futureLetterContent.innerHTML=`<form class="future-letter-form" id="future-letter-form">
+    <fieldset><legend>어떤 마음을 기록할까요?</legend>
+      <label class="future-letter-mode"><input type="radio" name="letter-mode" value="general" ${seed.mode!=='focus'?'checked':''}><span><b>전반적인 나를 칭찬하기</b><small>서로 다른 잘한 일을 자유롭게 모아요.</small></span></label>
+      <label class="future-letter-mode"><input type="radio" name="letter-mode" value="focus" ${seed.mode==='focus'?'checked':''}><span><b>한 가지 주제를 응원하기</b><small>성공·실패 없이 한 방향을 다정하게 지켜봐요.</small></span></label>
+    </fieldset>
+    <label class="future-letter-theme-field" ${seed.mode==='focus'?'':'hidden'}>이번 15일의 응원 주제<input name="letter-theme" maxlength="24" value="${escapeHTML(seed.theme||'')}" placeholder="예: 내 몸 돌보기, 조금씩 배우기"></label>
+    <label class="future-letter-message-field">미래의 나에게 하고 싶은 말<textarea name="letter-content" maxlength="600" placeholder="지금의 마음과 15일 뒤의 나에게 해주고 싶은 말을 적어주세요."></textarea></label>
+    <fieldset class="future-letter-colors"><legend>봉투를 골라주세요</legend>
+      ${[['peach','살구빛'],['grape','포도빛'],['sage','새싹빛']].map(([id,label])=>`<label><input type="radio" name="letter-envelope" value="${id}" ${seed.envelope===id?'checked':''}><span class="envelope-color ${id}"></span><small>${label}</small></label>`).join('')}
+    </fieldset>
+    <p class="future-letter-private-note"><span>●</span> 편지는 공유 링크에 포함되지 않고 이 브라우저에만 보관돼요.</p>
+    <button class="primary-button future-letter-seal" type="submit">15일 뒤로 편지 보내기 <span>→</span></button>
+  </form>${futureLetterArchiveMarkup()}`;
+  setTimeout(()=>futureLetterContent.querySelector('textarea')?.focus(),120);
+}
+function renderFutureLetterWaiting(letter){
+  const left=futureLetterDaysLeft(letter);
+  futureLetterTitle.innerHTML='편지를<br /><em>봉인했어요</em>';
+  futureLetterContent.innerHTML=`<div class="sealed-letter-view"><span class="large-sealed-envelope ${escapeHTML(letter.envelope||'peach')}" aria-hidden="true"><i></i><b>♥</b></span><strong>D-${left}</strong><h3>${futureLetterDateLabel(letter.deliverAt)}에 만나요</h3><p>${letter.mode==='focus'?`‘${escapeHTML(letter.theme)}’을 응원하는 마음을 담았어요.`:'전반적인 나를 칭찬하는 마음을 담았어요.'}<br>내용은 도착할 때까지 보이지 않아요.</p><button class="plain-button" type="button" data-delete-future-letter="${letter.id}">봉인한 편지 삭제하기</button></div>${futureLetterArchiveMarkup()}`;
+}
+function renderFutureLetterArrived(letter){
+  const start=new Date(letter.createdAt).getTime();
+  const end=new Date(letter.deliverAt).getTime();
+  const period=memories.filter(memory=>{ const time=new Date(memory.date).getTime(); return time>=start&&time<=end; });
+  const days=new Set(period.map(memory=>memoryDayKey(memory.date)).filter(Boolean)).size;
+  const focusCount=period.filter(memory=>memory.futureLetterId===letter.id&&memory.focusRelated!==false).length;
+  futureLetterTitle.innerHTML='15일 전의 내가<br /><em>보낸 편지</em>';
+  futureLetterContent.innerHTML=`<article class="arrived-letter-paper ${escapeHTML(letter.envelope||'peach')}"><span class="letter-paper-date">${futureLetterDateLabel(letter.createdAt)}</span><p>${escapeHTML(letter.content).replace(/\n/g,'<br>')}</p><footer>15일 전의 나로부터 <span>♥</span></footer></article><section class="future-letter-summary"><b>그동안 ${days}일에 걸쳐 ${period.length}개의 잘한 일을 남겼어요.</b><small>${letter.mode==='focus'?`‘${escapeHTML(letter.theme)}’과 연결된 기록도 ${focusCount}개 차곡차곡 모였어요.`:'결과와 상관없이 다시 이 집으로 돌아온 것도 잘한 일이에요.'}</small></section><div class="future-letter-actions"><button class="primary-button" type="button" data-reply-future-letter="${letter.id}">15일 뒤의 나에게 답장하기 <span>→</span></button></div>${futureLetterArchiveMarkup(letter.id)}`;
+}
+function renderFutureLetterModal(letter=null){
+  if(!letter){ renderFutureLetterCompose(); return; }
+  if(!futureLetterDelivered(letter)){ renderFutureLetterWaiting(letter); return; }
+  if(!letter.openedAt){ letter.openedAt=new Date().toISOString(); saveFutureLetters(); renderFutureLetterCard(); }
+  renderFutureLetterArrived(letter);
+}
+function openFutureLetter(){
+  if(isSharedHome){ showCaptureNotice('공유받은 집이에요','미래 편지는 집 주인만 볼 수 있는 비공개 기록이에요.'); return; }
+  if(!memories.length&&!futureLetters.length) return;
+  const letter=pendingFutureLetter()||latestOpenedFutureLetter();
+  selectedFutureLetterId=letter?.id||''; futureLetterComposeSeed=null;
+  renderFutureLetterModal(letter);
+  futureLetterBackdrop.classList.add('open'); futureLetterBackdrop.setAttribute('aria-hidden','false');
+}
+function closeFutureLetter(){ futureLetterBackdrop.classList.remove('open'); futureLetterBackdrop.setAttribute('aria-hidden','true'); }
+function sealFutureLetter(form){
+  const data=new FormData(form); const mode=data.get('letter-mode')==='focus'?'focus':'general';
+  const theme=String(data.get('letter-theme')||'').trim(); const content=String(data.get('letter-content')||'').trim();
+  if(mode==='focus'&&!theme){ form.querySelector('[name="letter-theme"]').focus(); showCaptureNotice('응원 주제를 적어주세요','성공 여부를 판단하지 않는 따뜻한 방향이면 충분해요.'); return; }
+  if(content.length<5){ form.querySelector('textarea').focus(); showCaptureNotice('미래의 나에게 한마디를 남겨주세요','짧아도 괜찮아요. 다섯 글자 이상 마음을 적어주세요.'); return; }
+  const createdAt=new Date(); const deliverAt=new Date(createdAt); deliverAt.setDate(deliverAt.getDate()+FUTURE_LETTER_DAYS);
+  const letter={id:globalThis.crypto?.randomUUID?.()||`letter-${createdAt.getTime()}`,mode,theme:mode==='focus'?theme:'',content,envelope:String(data.get('letter-envelope')||'peach'),createdAt:createdAt.toISOString(),deliverAt:deliverAt.toISOString(),openedAt:'',notifiedAt:''};
+  futureLetters.push(letter); selectedFutureLetterId=letter.id; futureLetterComposeSeed=null; saveFutureLetters();
+  renderFutureLetterCard(); updateActiveLetterTheme(); renderFutureLetterWaiting(letter);
+  showCaptureNotice('15일 뒤로 편지를 보냈어요',`${futureLetterDateLabel(letter.deliverAt)}에 과거의 마음이 도착해요.`);
+}
+
 function renderRecords(){
   const total = memories.length;
   const monthlyDays=monthlyRecordedDayCount();
@@ -2060,6 +2220,9 @@ function renderRecords(){
   recentList.innerHTML=shown||'<li><span class="memory-dot">＋</span><div><b>아직 기록이 없어요</b><small>첫 잘한 일을 남기면 이곳에 나타나요.</small></div></li>';
   updateDoorMissionUI();
   renderRewardJourney();
+  renderFutureLetterCard();
+  updateActiveLetterTheme();
+  setTimeout(notifyArrivedFutureLetter,0);
   renderInteriorInventory();
   if(interiorView.classList.contains('open')) renderInteriorItems();
 }
@@ -2329,7 +2492,7 @@ houseNameButton.addEventListener('click',()=>{ if(isSharedHome){ showCaptureNoti
 houseNameInput.addEventListener('keydown',e=>{ if(e.key==='Enter') saveHouseName(); if(e.key==='Escape') houseNameEditor.classList.remove('editing'); });
 houseNameInput.addEventListener('blur',saveHouseName);
 
-function openModal(){ if(isSharedHome){ showCaptureNotice('공유받은 집이에요','기록과 장식은 원래 모습 그대로 보기 전용으로 열려 있어요.'); return; } modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(),180); }
+function openModal(){ if(isSharedHome){ showCaptureNotice('공유받은 집이에요','기록과 장식은 원래 모습 그대로 보기 전용으로 열려 있어요.'); return; } updateActiveLetterTheme(); modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(),180); }
 function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
 document.querySelector('#open-entry').addEventListener('click',openModal);
 document.querySelector('#card-entry').addEventListener('click',openModal);
@@ -2349,6 +2512,8 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
   const flowerColor=selectedDecor==='flower'?randomFlowerColor():null;
   const recordedAt=new Date();
   const memory={text,decor:selectedDecor,date:recordedAt.toISOString(),flowerColor};
+  const activeLetter=activeFutureLetterForRecording();
+  if(activeLetter){ memory.futureLetterId=activeLetter.id; memory.focusRelated=activeLetter.mode==='focus'?memoryFocusRelated.checked:true; }
   const shouldSetStartDate=!streakStartDate;
   memories.unshift(memory);
   persistLocal(STORAGE_KEY,JSON.stringify(memories));
@@ -2364,6 +2529,30 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
   showCaptureNotice(shouldSetStartDate?'오늘부터 시작했어요!':'오늘의 장식이 놓였어요!',shouldSetStartDate?'첫 기록 날짜가 시작일로 자동 설정되고, 장식도 집에 놓였어요.':'집이 조금 더 따뜻해졌습니다.');
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
+openFutureLetterButton.addEventListener('click',openFutureLetter);
+document.querySelector('#close-future-letter').addEventListener('click',closeFutureLetter);
+futureLetterBackdrop.addEventListener('click',event=>{ if(event.target===futureLetterBackdrop) closeFutureLetter(); });
+futureLetterContent.addEventListener('change',event=>{
+  if(event.target.name!=='letter-mode') return;
+  const themeField=futureLetterContent.querySelector('.future-letter-theme-field');
+  if(themeField){ themeField.hidden=event.target.value!=='focus'; if(!themeField.hidden) themeField.querySelector('input')?.focus(); }
+});
+futureLetterContent.addEventListener('submit',event=>{
+  if(event.target.id!=='future-letter-form') return;
+  event.preventDefault(); sealFutureLetter(event.target);
+});
+futureLetterContent.addEventListener('click',event=>{
+  const deleteButton=event.target.closest('[data-delete-future-letter]');
+  if(deleteButton){
+    if(!window.confirm('봉인한 편지를 삭제할까요? 삭제한 편지는 되돌릴 수 없어요.')) return;
+    futureLetters=futureLetters.filter(letter=>letter.id!==deleteButton.dataset.deleteFutureLetter); saveFutureLetters(); renderFutureLetterCard(); updateActiveLetterTheme(); closeFutureLetter(); showCaptureNotice('봉인한 편지를 삭제했어요','언제든 새로운 편지를 다시 쓸 수 있어요.'); return;
+  }
+  const replyButton=event.target.closest('[data-reply-future-letter]');
+  if(replyButton){ const source=futureLetters.find(letter=>letter.id===replyButton.dataset.replyFutureLetter); futureLetterComposeSeed={mode:source?.mode||'general',theme:source?.theme||'',envelope:source?.envelope||'peach'}; selectedFutureLetterId=''; renderFutureLetterCompose(); return; }
+  const pastButton=event.target.closest('[data-open-past-letter]');
+  if(pastButton){ const letter=futureLetters.find(candidate=>candidate.id===pastButton.dataset.openPastLetter); if(letter){ selectedFutureLetterId=letter.id; renderFutureLetterArrived(letter); } }
+});
+document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&futureLetterBackdrop.classList.contains('open')) closeFutureLetter(); });
 document.querySelector('#sound-button').addEventListener('click',event=>{
   const button=event.currentTarget;
   const muted=button.classList.toggle('muted');

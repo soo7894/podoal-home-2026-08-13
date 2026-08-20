@@ -122,6 +122,7 @@ let selectedDecor = 'flower';
 let editingMemoryDate = null;
 let currentRewardAction = null;
 let adminPreviewActive = false;
+let adminFutureDecorCounter = 0;
 let activeInteriorRoomId = 'living';
 let adminInteriorLayout = {};
 let adminPreviewRewards = {rareItem:'',exteriorStyle:''};
@@ -142,7 +143,14 @@ const DECOR_CATEGORIES=[
   ['야외 소품',['lamp','book','flag','birdhouse','mailbox','bicycle','lantern','basket','chime']],
   ['집 · 친구',['rooflight','gnome','cat','dog']]
 ];
-const FUTURE_DECOR_OPTIONS = ['작은 온실','연못과 오리','꽃 아치 조명','포도나무 그늘','비밀 우체통','새로운 친구'];
+const FUTURE_DECOR_OPTIONS = [
+  {id:'greenhouse',label:'작은 온실'},
+  {id:'duckpond',label:'연못과 오리'},
+  {id:'lightarch',label:'꽃 아치 조명'},
+  {id:'grapepergola',label:'포도나무 그늘'},
+  {id:'secretmailbox',label:'비밀 우체통'},
+  {id:'newfriend',label:'새로운 친구'}
+];
 const INTERIOR_ROOMS = [
   {id:'living',label:'거실',icon:'🛋️',unlockDays:3,action:'쉬어가기',description:'따뜻하게 쉬고 오늘의 기록을 돌아보는 공간',target:[1.25,.78,1.0],bounds:{x:[-.05,3.05],z:[-.2,2.75]}},
   {id:'entry',label:'현관',icon:'🚪',unlockDays:3,action:'현관문 열기',description:'문을 열면 내가 꾸민 마당이 그대로 보여요',target:[-.55,.75,-2.45],bounds:{x:[-1.25,.05],z:[-3.0,-2.05]}},
@@ -196,6 +204,12 @@ const DECOR_ART = {
   dog:'<path d="M20 40c0-15 24-16 27-3 3 11-16 10-19 4" fill="#c78653"/><circle cx="45" cy="27" r="8" fill="#c78653"/><ellipse cx="48" cy="20" rx="4" ry="7" fill="#795039"/>',
   stepping:'<ellipse cx="21" cy="40" rx="10" ry="5" fill="#dbc99a"/><ellipse cx="36" cy="32" rx="10" ry="5" fill="#e8d7a8"/><ellipse cx="51" cy="22" rx="10" ry="5" fill="#dbc99a"/>',
   topiary:'<path d="M29 43h15l-2-12H31z" fill="#d97855"/><path d="M36 31V23" stroke="#795039" stroke-width="4"/><circle cx="36" cy="16" r="12" fill="#57854f"/><circle cx="43" cy="21" r="8" fill="#6ba15d"/>',
+  greenhouse:'<path d="M16 43V22l20-13 20 13v21z" fill="#b9ded4" stroke="#fff7dc" stroke-width="4"/><path d="M36 10v33M17 23h38" stroke="#6f9e88" stroke-width="3"/><path d="M30 43V29h12v14" fill="#f4d28b"/>',
+  duckpond:'<ellipse cx="36" cy="39" rx="25" ry="9" fill="#78b8c5"/><ellipse cx="36" cy="31" rx="10" ry="7" fill="#fff1c4"/><circle cx="44" cy="25" r="6" fill="#fff1c4"/><path d="M49 25l8 3-8 3z" fill="#e99b3d"/><circle cx="46" cy="23" r="1.5" fill="#493727"/>',
+  lightarch:'<path d="M18 44V27a18 18 0 0 1 36 0v17" fill="none" stroke="#f4e9ce" stroke-width="5"/><g fill="#ef8fa1"><circle cx="21" cy="27" r="5"/><circle cx="29" cy="13" r="5"/><circle cx="43" cy="13" r="5"/><circle cx="51" cy="27" r="5"/></g><g fill="#ffe888"><circle cx="24" cy="34" r="3"/><circle cx="36" cy="20" r="3"/><circle cx="48" cy="34" r="3"/></g>',
+  grapepergola:'<path d="M17 43V15m38 28V15M15 16h42" stroke="#795039" stroke-width="5"/><path d="M20 13c12 9 22-8 34 1" fill="none" stroke="#5d8b50" stroke-width="6"/><g fill="#8e628e"><circle cx="30" cy="23" r="4"/><circle cx="35" cy="25" r="4"/><circle cx="40" cy="22" r="4"/><circle cx="35" cy="30" r="4"/></g>',
+  secretmailbox:'<path d="M33 45V29" stroke="#795039" stroke-width="5"/><path d="M17 31V17h34v14z" fill="#9b708e"/><path d="M16 17l18-10 18 10" fill="#e7a45c"/><circle cx="43" cy="24" r="3" fill="#f4c94e"/><path d="M21 21h13" stroke="#fff0cf" stroke-width="3"/>',
+  newfriend:'<circle cx="36" cy="22" r="12" fill="#f6cf9f"/><path d="M22 45c1-15 27-15 28 0z" fill="#7fa98b"/><circle cx="31" cy="21" r="2" fill="#493727"/><circle cx="41" cy="21" r="2" fill="#493727"/><path d="M32 27c3 3 6 3 9 0" fill="none" stroke="#d47763" stroke-width="2"/>',
   rooflight:'<path d="M13 29L36 10l23 19" fill="#e97855"/><path d="M17 27c10-2 27-2 38 0" fill="none" stroke="#534338" stroke-width="3"/><g fill="#ffe075"><circle cx="21" cy="29" r="4"/><circle cx="29" cy="27" r="4"/><circle cx="36" cy="26" r="4"/><circle cx="43" cy="27" r="4"/><circle cx="51" cy="29" r="4"/></g>'
 };
 function decorThumbnail(type){
@@ -216,10 +230,22 @@ function interiorItemMarkup(type){
 }
 function renderDecorOptions(){
   const available=DECOR_CATEGORIES.map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(type=>{ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }).join('')}</div></section>`).join('');
-  const future=`<section class="decor-category future-decor-category" aria-label="곧 공개될 장식"><h3>곧 만날 장식 <span>아직 비공개 · 추후 공개</span></h3><div class="decor-category-grid">${FUTURE_DECOR_OPTIONS.map(label=>`<article class="decor-option locked-decor" aria-label="${label}, 추후 공개"><span class="locked-decor-image">?</span><span class="decor-option-label">${label}</span><small>COMING SOON</small></article>`).join('')}</div></section>`;
+  const futureCards=FUTURE_DECOR_OPTIONS.map(option=>adminPreviewActive
+    ? `<button class="decor-option admin-future-decor" data-admin-future="${option.id}" type="button"><img class="decor-option-image" src="${decorThumbnail(option.id)}" alt="" aria-hidden="true" /><span class="decor-option-label">${option.label}</span><small>눌러서 미리 배치</small></button>`
+    : `<article class="decor-option locked-decor" aria-label="${option.label}, 추후 공개"><span class="locked-decor-image">?</span><span class="decor-option-label">${option.label}</span><small>COMING SOON</small></article>`).join('');
+  const future=`<section class="decor-category future-decor-category" aria-label="곧 공개될 장식"><h3>곧 만날 장식 <span>${adminPreviewActive?'관리자 체험 · 모두 공개':'아직 비공개 · 추후 공개'}</span></h3><div class="decor-category-grid">${futureCards}</div></section>`;
   decorOptions.innerHTML=available+future;
 }
 renderDecorOptions();
+function placeAdminFutureDecoration(type){
+  if(!adminPreviewActive) return;
+  const option=FUTURE_DECOR_OPTIONS.find(candidate=>candidate.id===type);
+  if(!option) return;
+  adminFutureDecorCounter+=1;
+  addDecoration(type,memories.length+adminFutureDecorCounter+24,true,`관리자 체험 · ${option.label}`,`admin-future-${type}-${adminFutureDecorCounter}`);
+  closeModal();
+  showCaptureNotice(`${option.label}을 미리 놓았어요`,'관리자 체험 장식이므로 체험을 끝내면 원래 상태로 돌아갑니다.');
+}
 function decodeSharedHome(){
   const encoded=location.hash.startsWith(SHARE_HASH_PREFIX)?location.hash.slice(SHARE_HASH_PREFIX.length):'';
   if(!encoded) return null;
@@ -735,7 +761,7 @@ houseNameText.textContent = `${houseName}네 집`;
 const slots = [ [-2.65,.04,1.75], [2.3,.04,1.42], [-3.05,.04,-.2], [3.15,.04,.15], [-1.7,.04,3.2], [1.72,.04,3.28], [-3.75,.04,1.0], [3.8,.04,2.1] ];
 const houseZone = { minX:-2.82, maxX:2.82, minZ:-2.82, maxZ:2.28 };
 const TOP_LAWN_RADIUS = 5.32;
-const DECOR_FOOTPRINTS={flower:.42,lamp:.38,book:.44,flag:.36,tree:.68,bigtree:.98,bench:.6,fountain:.55,birdhouse:.4,mailbox:.44,fence:.56,swing:.74,bicycle:.56,stone:.44,mushroom:.4,birdbath:.44,lantern:.34,leafplant:.48,watering:.44,flowerbed:.58,sunflower:.44,gnome:.38,basket:.4,hammock:.72,arch:.58,chime:.38,pumpkin:.5,cat:.42,dog:.44,stepping:.46,topiary:.48};
+const DECOR_FOOTPRINTS={flower:.42,lamp:.38,book:.44,flag:.36,tree:.68,bigtree:.98,bench:.6,fountain:.55,birdhouse:.4,mailbox:.44,fence:.56,swing:.74,bicycle:.56,stone:.44,mushroom:.4,birdbath:.44,lantern:.34,leafplant:.48,watering:.44,flowerbed:.58,sunflower:.44,gnome:.38,basket:.4,hammock:.72,arch:.58,chime:.38,pumpkin:.5,cat:.42,dog:.44,stepping:.46,topiary:.48,greenhouse:.82,duckpond:.72,lightarch:.62,grapepergola:.78,secretmailbox:.46,newfriend:.42};
 function decorFootprint(type){ return DECOR_FOOTPRINTS[type]??.5; }
 function keepInsideTopLawn(x,z){
   const maxRadius=TOP_LAWN_RADIUS;
@@ -1040,6 +1066,44 @@ if(type==='chime') {
   if(type==='dog') { sphere(.23,0xc78653,new THREE.Vector3(-.08,.23,0),g); sphere(.15,0xc78653,new THREE.Vector3(.22,.27,0),g); sphere(.07,0x795039,new THREE.Vector3(.28,.34,.11),g); const tail=mesh(new THREE.TorusGeometry(.14,.025,8,16,Math.PI),mat(0xc78653),new THREE.Vector3(-.28,.32,0),g); tail.rotation.y=Math.PI/2; }
   if(type==='stepping') { for(const [x,z] of [[-.23,-.12],[.08,0],[.25,.15]]) { const step=sphere(.19,0xd8c99a,new THREE.Vector3(x,.05,z),g); step.scale.y=.24; } }
   if(type==='topiary') { cylinder(.2,.27,.34,palette.pot,new THREE.Vector3(0,.17,0),g); cylinder(.06,.07,.36,palette.wood,new THREE.Vector3(0,.48,0),g); sphere(.28,0x54834f,new THREE.Vector3(0,.77,0),g); sphere(.18,0x6da05d,new THREE.Vector3(.16,.69,.03),g); }
+  if(type==='greenhouse') {
+    const glassMaterial=new THREE.MeshStandardMaterial({color:0xb9ded4,roughness:.28,transparent:true,opacity:.56});
+    const glass=mesh(new THREE.BoxGeometry(1.0,.72,.78),glassMaterial,new THREE.Vector3(0,.38,0),g); glass.castShadow=false;
+    for(const x of [-.52,.52]) for(const z of [-.4,.4]) box(.055,.82,.055,palette.cream,new THREE.Vector3(x,.41,z),g);
+    for(const x of [-.52,.52]){ const beam=box(.055,.78,.055,palette.cream,new THREE.Vector3(x,.91,0),g); beam.rotation.z=x<0?-.72:.72; }
+    box(1.08,.055,.055,palette.cream,new THREE.Vector3(0,1.18,0),g);
+    cylinder(.16,.20,.24,palette.pot,new THREE.Vector3(0,.13,0),g); sphere(.19,palette.leaf,new THREE.Vector3(0,.42,0),g);
+  }
+  if(type==='duckpond') {
+    const pond=cylinder(.68,.73,.10,0x78b8c5,new THREE.Vector3(0,.05,0),g,28); pond.scale.z=.72;
+    const duckBody=sphere(.22,0xffefbd,new THREE.Vector3(0,.21,0),g); duckBody.scale.set(1.25,.72,.8);
+    sphere(.14,0xffefbd,new THREE.Vector3(.23,.35,0),g);
+    const beak=mesh(new THREE.ConeGeometry(.08,.18,4),mat(0xe99b3d),new THREE.Vector3(.39,.34,0),g); beak.rotation.z=-Math.PI/2; beak.rotation.y=Math.PI/4;
+    sphere(.025,palette.dark,new THREE.Vector3(.28,.39,.11),g);
+  }
+  if(type==='lightarch') {
+    for(const x of [-.34,.34]) box(.07,.90,.07,palette.cream,new THREE.Vector3(x,.45,0),g);
+    const arch=mesh(new THREE.TorusGeometry(.34,.045,8,22,Math.PI),mat(palette.cream),new THREE.Vector3(0,.88,0),g); arch.rotation.y=Math.PI;
+    for(const [x,y] of [[-.31,.66],[-.18,.96],[0,1.08],[.18,.96],[.31,.66]]){ sphere(.075,0xef8fa1,new THREE.Vector3(x,y,.02),g); const bulb=sphere(.035,0xffffdd,new THREE.Vector3(x,y-.08,.07),g); bulb.material.emissive.setHex(0xffd878); bulb.material.emissiveIntensity=.8; }
+  }
+  if(type==='grapepergola') {
+    for(const x of [-.44,.44]) box(.09,1.05,.09,palette.wood,new THREE.Vector3(x,.53,0),g);
+    box(1.02,.09,.10,palette.wood,new THREE.Vector3(0,1.04,0),g);
+    for(const x of [-.34,0,.34]){ const vine=sphere(.20,0x5d8b50,new THREE.Vector3(x,1.04,.03),g); vine.scale.set(1.25,.45,.8); }
+    for(const [x,y] of [[-.20,.83],[-.08,.78],[.06,.84],[.20,.76]]) sphere(.075,0x8e628e,new THREE.Vector3(x,y,.06),g);
+  }
+  if(type==='secretmailbox') {
+    box(.10,.72,.10,palette.wood,new THREE.Vector3(0,.36,0),g);
+    box(.55,.38,.32,0x9b708e,new THREE.Vector3(0,.78,0),g);
+    const cap=mesh(new THREE.ConeGeometry(.43,.28,4),mat(0xe7a45c),new THREE.Vector3(0,1.10,0),g); cap.rotation.y=Math.PI/4;
+    sphere(.045,0xf4c94e,new THREE.Vector3(.18,.78,.18),g);
+  }
+  if(type==='newfriend') {
+    const body=sphere(.28,0x7fa98b,new THREE.Vector3(0,.29,0),g); body.scale.y=1.15;
+    sphere(.20,0xf6cf9f,new THREE.Vector3(0,.67,0),g);
+    for(const x of [-.075,.075]) sphere(.022,palette.dark,new THREE.Vector3(x,.70,.18),g);
+    for(const x of [-.16,.16]) cylinder(.045,.055,.30,0x7fa98b,new THREE.Vector3(x,.12,0),g,10);
+  }
   if(type==='rooflight') {
     const cablePoint=new THREE.Vector3(0,-.03,.035);
     const bulbPosition=new THREE.Vector3(0,-.115,.09);
@@ -1621,9 +1685,14 @@ function enableAdminPreview(){
   createAdminInteriorLayout();
   adminPreviewActive=true;
   adminPreviewButton.classList.add('active');
+  adminPreviewButton.setAttribute('aria-pressed','true');
+  adminPreviewButton.setAttribute('aria-label','관리자 체험 끝내기');
+  adminPreviewButton.dataset.tooltip='관리자 체험 끝내기';
   document.body.classList.add('admin-preview-active');
   updateDoorMissionUI();
   renderRewardJourney();
+  renderDecorOptions();
+  if(interiorView.classList.contains('open')){ renderInteriorRoomMap(); updateInteriorRoomPanel(); renderInteriorItems(); }
   renderInteriorInventory();
 }
 function openAdminPreview(){
@@ -1663,12 +1732,26 @@ function stopAdminPreview(){
   if(adminDecorLayoutSnapshot) decorLayout=adminDecorLayoutSnapshot;
   adminDecorLayoutSnapshot=null;
   adminPreviewButton.classList.remove('active');
+  adminPreviewButton.setAttribute('aria-pressed','false');
+  adminPreviewButton.setAttribute('aria-label','관리자 미리보기');
+  adminPreviewButton.dataset.tooltip='관리자만 사용가능합니다.';
   document.body.classList.remove('admin-preview-active');
   closeAdminPreview();
   applyExteriorReward();
   rebuildDecorations();
+  adminFutureDecorCounter=0;
+  renderDecorOptions();
   renderRecords();
   showCaptureNotice('관리자 체험을 끝냈어요','기존 기록과 아이템 배치는 그대로 유지되어 있어요.');
+}
+function toggleAdminPreviewMode(){
+  if(!adminPreviewAllowed) return;
+  if(adminPreviewActive){
+    stopAdminPreview();
+    return;
+  }
+  enableAdminPreview();
+  showCaptureNotice('관리자 체험이 바로 켜졌어요','잠긴 방·보상·아이템과 곧 공개될 장식을 모두 확인할 수 있어요. 아이콘을 다시 누르면 종료됩니다.');
 }
 
 function startInteriorControl(event){
@@ -1999,7 +2082,14 @@ document.querySelector('#open-entry').addEventListener('click',openModal);
 document.querySelector('#card-entry').addEventListener('click',openModal);
 document.querySelector('#close-entry').addEventListener('click',closeModal);
 modal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
-decorOptions.addEventListener('click',event=>{ const button=event.target.closest('.decor-option'); if(!button) return; selectedDecor=button.dataset.decor; renderDecorOptions(); });
+decorOptions.addEventListener('click',event=>{
+  const button=event.target.closest('.decor-option');
+  if(!button) return;
+  if(button.dataset.adminFuture){ placeAdminFutureDecoration(button.dataset.adminFuture); return; }
+  if(!button.dataset.decor) return;
+  selectedDecor=button.dataset.decor;
+  renderDecorOptions();
+});
 document.querySelector('#save-memory').addEventListener('click',()=>{
   const text=input.value.trim();
   if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }
@@ -2095,7 +2185,7 @@ document.querySelector('#finish-guide').addEventListener('click',closeGuide);
 guideBackdrop.addEventListener('click',event=>{ if(event.target===guideBackdrop) closeGuide(); });
 if(!localStorage.getItem(GUIDE_SEEN_KEY)) setTimeout(openGuide,550);
 
-adminPreviewButton.addEventListener('click',openAdminPreview);
+adminPreviewButton.addEventListener('click',toggleAdminPreviewMode);
 document.querySelector('#close-admin-preview').addEventListener('click',closeAdminPreview);
 adminPreviewBackdrop.addEventListener('click',event=>{ if(event.target===adminPreviewBackdrop) closeAdminPreview(); });
 adminPreviewBackdrop.addEventListener('click',event=>{

@@ -377,9 +377,9 @@ box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(
 mesh(new THREE.SphereGeometry(.085,12,10),mat(0xf6ca4d),new THREE.Vector3(.88,.97,.12),doorPivot);
 let doorOpen=false, doorTargetRotation=0, interiorOpenTimer=null;
 const OPEN_DOOR_ANGLE=-Math.PI*.47;
-box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09),frontFacade);
-box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09),frontFacade);
-for (const x of [-1.66,1.66]) { box(.12,1.62,.12,palette.cream,new THREE.Vector3(x,2.22,2.18),frontFacade); box(1.68,.12,.12,palette.cream,new THREE.Vector3(x,2.22,2.18),frontFacade); box(1.82,.15,.15,palette.roof,new THREE.Vector3(x,3.05,2.17),frontFacade); }
+box(1.5,1.42,.08,palette.blue,new THREE.Vector3(-1.66,2.22,2.005),frontFacade);
+box(1.5,1.42,.08,palette.blue,new THREE.Vector3(1.66,2.22,2.005),frontFacade);
+for (const x of [-1.66,1.66]) { box(.12,1.62,.09,palette.cream,new THREE.Vector3(x,2.22,2.055),frontFacade); box(1.68,.12,.09,palette.cream,new THREE.Vector3(x,2.22,2.055),frontFacade); box(1.82,.15,.14,palette.roof,new THREE.Vector3(x,3.05,2.04),frontFacade); }
 const windowPanels=frontFacade.children.filter(child=>child.material?.color?.getHex()===palette.blue);
 const windowAwnings=frontFacade.children.filter(child=>child.material?.color?.getHex()===palette.roof);
 function applyExteriorReward(){

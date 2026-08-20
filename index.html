@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=19" />
+    <link rel="stylesheet" href="./styles.css?v=20" />
   </head>
   <body>
     <main class="app-shell">
@@ -261,15 +261,21 @@
         <button class="interior-back" id="close-interior" type="button"><span aria-hidden="true">←</span> 마당으로</button>
         <div>
           <p>MY WARM LITTLE HOME</p>
-          <h2 id="interior-title"><span id="interior-house-name">우리네 집</span>의 따뜻한 원룸</h2>
+          <h2 id="interior-title"><span id="interior-house-name">우리네 집</span>의 따뜻한 집</h2>
         </div>
-        <span class="interior-mission-complete"><i>✓</i> 서로 다른 날 3번 완료</span>
+        <span class="interior-mission-complete"><i>✓</i> <span id="interior-progress-copy">거실 공개</span></span>
       </header>
 
       <div class="interior-content">
         <div class="interior-stage" id="interior-stage">
           <div class="interior-room" id="interior-room" aria-label="꾸밀 수 있는 집 실내">
             <canvas class="interior-canvas" id="interior-canvas" aria-label="회전하고 꾸밀 수 있는 3D 집 실내"></canvas>
+            <nav class="interior-room-map" id="interior-room-map" aria-label="집 안 공간 선택"></nav>
+            <section class="interior-room-action" id="interior-room-action" aria-live="polite">
+              <span class="room-action-icon" id="room-action-icon" aria-hidden="true">🛋️</span>
+              <div><b id="room-action-title">거실</b><small id="room-action-description">따뜻하게 쉬고 기록을 돌아보는 공간</small></div>
+              <button id="interior-activity-button" type="button">쉬어가기</button>
+            </section>
             <div class="interior-3d-hint"><span>↔</span> 빈 공간을 끌어 회전 · 휠로 확대/축소 · 아이템은 끌어 배치</div>
             <div class="interior-items" id="interior-items" hidden></div>
           </div>
@@ -277,18 +283,18 @@
 
         <aside class="interior-inventory" aria-label="실내 꾸미기 보관함">
           <div class="inventory-heading">
-            <div><p>MY INTERIOR ITEMS</p><h3>실내 꾸미기 보관함</h3></div>
+            <div><p>MY INTERIOR ITEMS</p><h3 id="interior-inventory-title">거실 아이템</h3></div>
             <span id="interior-item-count">0개 보유</span>
           </div>
-          <p class="inventory-help">획득한 아이템을 눌러 꺼낸 뒤, 방 안에서 끌어 원하는 곳에 놓아보세요.</p>
+          <p class="inventory-help" id="interior-inventory-help">거실에서 사용할 아이템을 골라 원하는 곳에 놓아보세요.</p>
           <div class="inventory-list" id="interior-inventory-list"></div>
-          <section class="future-room-card">
-            <span>?</span><div><b>새로운 방과 가구</b><small>아직 비공개 · 다음 업데이트에 공개돼요</small></div>
+          <section class="future-room-card" id="future-room-card">
+            <span>?</span><div><b id="future-room-title">다음 공간</b><small id="future-room-description">기록을 이어가면 새로운 방이 공개돼요.</small></div>
           </section>
         </aside>
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=105"></script>
+    <script type="module" src="./main.js?v=106"></script>
   </body>
 </html>

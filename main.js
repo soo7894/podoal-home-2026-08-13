@@ -60,6 +60,18 @@ const interiorItems = document.querySelector('#interior-items');
 const interiorInventoryList = document.querySelector('#interior-inventory-list');
 const interiorItemCount = document.querySelector('#interior-item-count');
 const interiorHouseName = document.querySelector('#interior-house-name');
+const interiorRoomMap = document.querySelector('#interior-room-map');
+const interiorProgressCopy = document.querySelector('#interior-progress-copy');
+const interiorRoomAction = document.querySelector('#interior-room-action');
+const roomActionIcon = document.querySelector('#room-action-icon');
+const roomActionTitle = document.querySelector('#room-action-title');
+const roomActionDescription = document.querySelector('#room-action-description');
+const interiorActivityButton = document.querySelector('#interior-activity-button');
+const interiorInventoryTitle = document.querySelector('#interior-inventory-title');
+const interiorInventoryHelp = document.querySelector('#interior-inventory-help');
+const futureRoomCard = document.querySelector('#future-room-card');
+const futureRoomTitle = document.querySelector('#future-room-title');
+const futureRoomDescription = document.querySelector('#future-room-description');
 const adminPreviewButton = document.querySelector('#admin-preview-button');
 const adminPreviewBackdrop = document.querySelector('#admin-preview-backdrop');
 const adminPreviewStatus = document.querySelector('#admin-preview-status');
@@ -109,6 +121,7 @@ let selectedDecor = 'flower';
 let editingMemoryDate = null;
 let currentRewardAction = null;
 let adminPreviewActive = false;
+let activeInteriorRoomId = 'living';
 let adminInteriorLayout = {};
 let adminPreviewRewards = {rareItem:'',exteriorStyle:''};
 let adminDecorLayoutSnapshot = null;
@@ -129,13 +142,26 @@ const DECOR_CATEGORIES=[
   ['집 · 친구',['rooflight','gnome','cat','dog']]
 ];
 const FUTURE_DECOR_OPTIONS = ['작은 온실','연못과 오리','꽃 아치 조명','포도나무 그늘','비밀 우체통','새로운 친구'];
+const INTERIOR_ROOMS = [
+  {id:'living',label:'거실',icon:'🛋️',unlockDays:3,action:'쉬어가기',description:'따뜻하게 쉬고 오늘의 기록을 돌아보는 공간',target:[1.25,.78,1.0],bounds:{x:[-.05,3.05],z:[-.2,2.75]}},
+  {id:'entry',label:'현관',icon:'🚪',unlockDays:3,action:'기분 남기기',description:'오늘의 기분을 내려놓고 집으로 들어오는 공간',target:[-.55,.75,-2.45],bounds:{x:[-1.25,.05],z:[-3.0,-2.05]}},
+  {id:'kitchen',label:'주방·식당',icon:'🍳',unlockDays:7,action:'요리하기',description:'모은 재료로 따뜻한 한 끼를 만드는 공간',target:[1.45,.78,-1.72],bounds:{x:[.05,3.05],z:[-2.95,-.42]}},
+  {id:'bedroom',label:'침실',icon:'🛏️',unlockDays:14,action:'잘 준비하기',description:'하루를 정리하고 편안히 쉬는 공간',target:[-1.62,.72,1.0],bounds:{x:[-3.05,-.22],z:[-.15,2.35]}},
+  {id:'bathroom',label:'욕실',icon:'🛁',unlockDays:30,action:'나 돌보기',description:'나를 씻고 다정하게 돌보는 공간',target:[-2.25,.72,-1.68],bounds:{x:[-3.05,-1.42],z:[-2.95,-.42]}},
+  {id:'terrace',label:'테라스',icon:'🌿',unlockDays:60,action:'화분 물주기',description:'햇살과 바람을 느끼며 식물을 돌보는 공간',target:[-1.55,.55,2.48],bounds:{x:[-3.05,-.22],z:[2.38,2.95]}}
+];
 const INTERIOR_ITEMS = [
-  {id:'sun-rug',label:'햇살 러그',unlockDays:3,x:48,y:72},
-  {id:'leaf-pot',label:'둥근 잎 화분',unlockDays:3,x:34,y:58},
-  {id:'mood-lamp',label:'작은 무드등',unlockDays:3,x:63,y:49},
-  {id:'soft-cushion',label:'살구 쿠션',unlockDays:4,x:72,y:64},
-  {id:'book-stack',label:'저녁 책 더미',unlockDays:5,x:55,y:57},
-  {id:'picnic-basket',label:'포도 바구니',unlockDays:6,x:22,y:68}
+  {id:'welcome-mat',label:'포근한 현관 매트',room:'entry',unlockDays:3,x:47,y:20},
+  {id:'sun-rug',label:'햇살 러그',room:'living',unlockDays:3,x:70,y:70},
+  {id:'leaf-pot',label:'둥근 잎 화분',room:'living',unlockDays:3,x:84,y:62},
+  {id:'mood-lamp',label:'작은 무드등',room:'living',unlockDays:3,x:62,y:54},
+  {id:'book-stack',label:'저녁 책 더미',room:'living',unlockDays:5,x:76,y:80},
+  {id:'picnic-basket',label:'포도 바구니',room:'kitchen',unlockDays:7,x:70,y:31},
+  {id:'tea-set',label:'살구 찻잔 세트',room:'kitchen',unlockDays:7,x:58,y:27},
+  {id:'soft-cushion',label:'살구 쿠션',room:'bedroom',unlockDays:14,x:27,y:70},
+  {id:'sleep-lamp',label:'달빛 협탁등',room:'bedroom',unlockDays:14,x:36,y:58},
+  {id:'bath-basket',label:'포근한 수건 바구니',room:'bathroom',unlockDays:30,x:16,y:29},
+  {id:'terrace-planter',label:'테라스 화분',room:'terrace',unlockDays:60,x:28,y:88}
 ];
 const DECOR_ART = {
   flower:'<path d="M29 42h15l-2-13H31z" fill="#d97855"/><path d="M36 29v-12" stroke="#4f7d50" stroke-width="3"/><g fill="#ef90a3"><circle cx="36" cy="15" r="6"/><circle cx="29" cy="20" r="6"/><circle cx="43" cy="20" r="6"/><circle cx="31" cy="27" r="6"/><circle cx="41" cy="27" r="6"/></g><circle cx="36" cy="21" r="4" fill="#f8cb50"/>',
@@ -176,12 +202,16 @@ function decorThumbnail(type){
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 function interiorItemMarkup(type){
+  if(type==='welcome-mat') return '<span class="interior-item-art art-welcome-mat"><i>HI</i></span>';
   if(type==='sun-rug') return '<span class="interior-item-art art-rug"><i></i><b></b></span>';
   if(type==='leaf-pot') return '<span class="interior-item-art art-plant"><i></i><i></i><i></i><b></b></span>';
   if(type==='mood-lamp') return '<span class="interior-item-art art-lamp"><i></i><b></b><em></em></span>';
   if(type==='soft-cushion') return '<span class="interior-item-art art-cushion"><i></i><b></b></span>';
   if(type==='book-stack') return '<span class="interior-item-art art-books"><i></i><b></b><em></em></span>';
-  return '<span class="interior-item-art art-basket"><i></i><b></b><em></em></span>';
+  if(type==='picnic-basket'||type==='bath-basket') return '<span class="interior-item-art art-basket"><i></i><b></b><em></em></span>';
+  if(type==='tea-set') return '<span class="interior-item-art art-tea"><i></i><b></b><em></em></span>';
+  if(type==='sleep-lamp') return '<span class="interior-item-art art-sleep-lamp"><i></i><b></b><em></em></span>';
+  return '<span class="interior-item-art art-terrace-planter"><i></i><i></i><b></b></span>';
 }
 function renderDecorOptions(){
   const available=DECOR_CATEGORIES.map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(type=>{ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }).join('')}</div></section>`).join('');
@@ -404,24 +434,31 @@ interiorSphere(.13,0xfff0a2,new THREE.Vector3(0,2.52,0),pendantGroup);
 
 // Fixed furniture: kitchen/dining, sleeping corner and a softly separated bathroom.
 const kitchenGroup=new THREE.Group(); interiorWorld.add(kitchenGroup);
+kitchenGroup.userData.roomId='kitchen';
 interiorBox(.72,1.62,.68,0x79a9a5,new THREE.Vector3(-2.72,.91,-2.96),kitchenGroup);
 interiorBox(1.62,.72,.68,0xe4a04e,new THREE.Vector3(-1.48,.46,-2.96),kitchenGroup);
 interiorBox(1.76,.12,.78,palette.wood,new THREE.Vector3(-1.48,.87,-2.96),kitchenGroup);
 const sinkBowl=interiorCylinder(.26,.26,.08,0x8bbabd,new THREE.Vector3(-1.78,.96,-2.96),kitchenGroup,20); sinkBowl.scale.z=.68;
 for(const x of [-1.95,-1.05]) interiorSphere(.045,palette.wood,new THREE.Vector3(x,.53,-2.59),kitchenGroup);
+kitchenGroup.position.x=3.25;
 const diningGroup=new THREE.Group(); interiorWorld.add(diningGroup);
+diningGroup.userData.roomId='kitchen';
 const diningTop=interiorCylinder(.63,.68,.16,palette.wood,new THREE.Vector3(-1.48,.78,-1.35),diningGroup,24); diningTop.scale.z=.78;
 interiorCylinder(.12,.16,.72,palette.wood,new THREE.Vector3(-1.48,.38,-1.35),diningGroup,16);
 for(const x of [-2.18,-.78]){ interiorBox(.48,.14,.48,0xe98266,new THREE.Vector3(x,.47,-1.35),diningGroup); interiorCylinder(.055,.065,.44,palette.wood,new THREE.Vector3(x,.22,-1.35),diningGroup,12); }
+diningGroup.position.x=3.25;
 
 const bedGroup=new THREE.Group(); interiorWorld.add(bedGroup);
+bedGroup.userData.roomId='bedroom';
 interiorBox(1.82,.30,1.18,palette.wood,new THREE.Vector3(.83,.26,-2.67),bedGroup);
 interiorBox(1.68,.24,1.07,palette.cream,new THREE.Vector3(.83,.50,-2.64),bedGroup);
 interiorBox(1.03,.18,1.09,0xf0a07f,new THREE.Vector3(.53,.68,-2.63),bedGroup);
 interiorBox(.56,.18,.43,0xfff9e8,new THREE.Vector3(1.31,.69,-2.91),bedGroup);
 interiorBox(1.83,1.10,.16,palette.wood,new THREE.Vector3(.83,.70,-3.16),bedGroup);
+bedGroup.position.set(-1.8,0,4.6);
 
 const bathGroup=new THREE.Group(); interiorWorld.add(bathGroup);
+bathGroup.userData.roomId='bathroom';
 interiorBox(.12,1.72,2.05,0xf2c379,new THREE.Vector3(1.78,.88,-.42),bathGroup);
 interiorBox(1.35,.48,.72,0x8fc1c1,new THREE.Vector3(2.60,.32,-1.12),bathGroup);
 interiorBox(1.18,.22,.56,0xd9f0e8,new THREE.Vector3(2.60,.61,-1.12),bathGroup);
@@ -429,6 +466,26 @@ interiorBox(.62,.62,.52,palette.cream,new THREE.Vector3(2.72,.42,.33),bathGroup)
 const basin=interiorCylinder(.28,.25,.12,0x91bdbd,new THREE.Vector3(2.72,.79,.33),bathGroup,20); basin.scale.z=.72;
 interiorBox(.07,.44,.07,palette.wood,new THREE.Vector3(2.72,1.06,.22),bathGroup);
 interiorSphere(.08,0xf3c94d,new THREE.Vector3(2.72,1.30,.22),bathGroup);
+bathGroup.position.set(-4.75,0,-1.1);
+
+// Low toy-like partitions preserve the square exterior footprint while keeping every room visible.
+const interiorPartitionsGroup=new THREE.Group(); interiorWorld.add(interiorPartitionsGroup);
+interiorBox(.14,1.18,3.15,0xf1c378,new THREE.Vector3(-.15,.62,1.22),interiorPartitionsGroup);
+interiorBox(2.70,1.18,.14,0xf1c378,new THREE.Vector3(-1.72,.62,-.35),interiorPartitionsGroup);
+interiorBox(3.15,1.18,.14,0xf1c378,new THREE.Vector3(1.48,.62,-.35),interiorPartitionsGroup);
+interiorBox(.14,1.18,1.28,0xf1c378,new THREE.Vector3(-1.34,.62,-2.36),interiorPartitionsGroup);
+
+const interiorRoomLockMeshes=[];
+function interiorRoomLockPanel(roomId,width,depth,x,z){
+  const material=new THREE.MeshStandardMaterial({color:0xb8aa91,roughness:1,transparent:true,opacity:.74});
+  const panel=new THREE.Mesh(new THREE.BoxGeometry(width,.055,depth),material);
+  panel.position.set(x,.16,z); panel.receiveShadow=true; panel.userData.roomId=roomId;
+  interiorWorld.add(panel); interiorRoomLockMeshes.push(panel); return panel;
+}
+interiorRoomLockPanel('kitchen',3.02,2.48,1.52,-1.69);
+interiorRoomLockPanel('bedroom',2.72,2.40,-1.64,1.08);
+interiorRoomLockPanel('bathroom',1.58,2.48,-2.23,-1.69);
+interiorRoomLockPanel('terrace',2.72,.54,-1.64,2.66);
 
 const interior3DItemsGroup=new THREE.Group(); interiorWorld.add(interior3DItemsGroup);
 const interiorRaycaster=new THREE.Raycaster();
@@ -439,12 +496,17 @@ let interiorYaw=.58,interiorPitch=.52,interiorDistance=11.8,interiorControl=null
 function markInteriorItem(group,id){ group.userData.interiorItemId=id; group.traverse(child=>{ child.userData.interiorItemRoot=group; }); return group; }
 function buildInterior3DItem(item){
   const group=new THREE.Group(); interior3DItemsGroup.add(group); const type=item.id;
+  if(type==='welcome-mat'){ const welcome=interiorBox(.84,.06,.48,0xd58b52,new THREE.Vector3(0,.05,0),group); welcome.rotation.y=-.05; interiorBox(.54,.025,.07,0xffe5a9,new THREE.Vector3(0,.09,0),group); }
   if(type==='sun-rug'){ const rug=interiorCylinder(.72,.74,.07,0xefb74e,new THREE.Vector3(0,.05,0),group,28); rug.scale.z=.72; const center=interiorCylinder(.27,.27,.075,0xffefb5,new THREE.Vector3(0,.09,0),group,24); center.scale.z=.72; }
   if(type==='leaf-pot'){ interiorCylinder(.28,.36,.42,palette.pot,new THREE.Vector3(0,.22,0),group); for(const [x,z,s,c] of [[-.18,0,.32,0x5a9256],[.17,.02,.34,0x76a565],[0,-.12,.38,0x4e8350]]){ const leaf=interiorSphere(s,c,new THREE.Vector3(x,.66,z),group); leaf.scale.set(.65,1.15,.48); } }
   if(type==='mood-lamp'){ interiorCylinder(.20,.26,.09,palette.wood,new THREE.Vector3(0,.05,0),group); interiorCylinder(.035,.045,.74,palette.dark,new THREE.Vector3(0,.45,0),group,12); const shade=interiorMesh(new THREE.ConeGeometry(.33,.42,18,1,true),0xf2c44f,new THREE.Vector3(0,.90,0),group); shade.rotation.x=Math.PI; const glow=new THREE.PointLight(0xffcf73,.75,2.6,2); glow.position.set(0,.78,0); group.add(glow); }
   if(type==='soft-cushion'){ const cushion=interiorSphere(.48,0xee8c72,new THREE.Vector3(0,.30,0),group); cushion.scale.set(1,.58,.88); cushion.rotation.y=.18; }
   if(type==='book-stack'){ const colors=[0x6e9c91,0xdf795e,0xefbb50]; colors.forEach((color,index)=>{ const book=interiorBox(.72,.14,.46,color,new THREE.Vector3((index-1)*.025,.09+index*.15,0),group); book.rotation.y=(index-1)*.08; }); }
   if(type==='picnic-basket'){ interiorCylinder(.40,.34,.42,0xc9844c,new THREE.Vector3(0,.23,0),group,18); const handle=interiorMesh(new THREE.TorusGeometry(.31,.045,8,20,Math.PI),palette.wood,new THREE.Vector3(0,.47,0),group); handle.rotation.z=Math.PI; handle.rotation.y=Math.PI/2; interiorSphere(.10,0x8e648f,new THREE.Vector3(-.13,.48,.18),group); interiorSphere(.10,0xb8799c,new THREE.Vector3(.10,.48,.18),group); }
+  if(type==='tea-set'){ interiorCylinder(.48,.50,.07,palette.wood,new THREE.Vector3(0,.05,0),group,24); for(const x of [-.18,.18]){ interiorCylinder(.14,.12,.22,0xfff4d7,new THREE.Vector3(x,.19,0),group,18); const handle=interiorMesh(new THREE.TorusGeometry(.10,.025,7,14),0xe6a24c,new THREE.Vector3(x+.12,.20,0),group); handle.rotation.x=Math.PI/2; } }
+  if(type==='sleep-lamp'){ interiorCylinder(.20,.25,.10,palette.wood,new THREE.Vector3(0,.05,0),group); interiorCylinder(.035,.04,.43,palette.dark,new THREE.Vector3(0,.31,0),group,12); const shade=interiorMesh(new THREE.ConeGeometry(.28,.34,18,1,true),0xf0a780,new THREE.Vector3(0,.62,0),group); shade.rotation.x=Math.PI; const glow=new THREE.PointLight(0xffcc86,.55,2.1,2); glow.position.set(0,.54,0); group.add(glow); }
+  if(type==='bath-basket'){ interiorBox(.68,.34,.48,0xc98752,new THREE.Vector3(0,.19,0),group); for(const [x,c] of [[-.20,0xfff4d7],[0,0xf0b58d],[.20,0x8fb6ad]]){ const towel=interiorCylinder(.105,.105,.42,c,new THREE.Vector3(x,.44,0),group,16); towel.rotation.z=Math.PI/2; } }
+  if(type==='terrace-planter'){ interiorCylinder(.31,.40,.44,palette.pot,new THREE.Vector3(0,.23,0),group); for(const [x,z,c] of [[-.17,0,0x5d9456],[.16,.03,0x74a65f],[0,-.14,0x4e8250]]){ const leaf=interiorSphere(.28,c,new THREE.Vector3(x,.67,z),group); leaf.scale.set(.7,1.2,.5); } }
   return markInteriorItem(group,item.id);
 }
 function interiorLayoutToPosition(saved){ return {x:THREE.MathUtils.clamp((saved.x-50)/45*3,-3.05,3.05),z:THREE.MathUtils.clamp((saved.y-53)/35*2.65,-2.75,2.75)}; }
@@ -1302,9 +1364,68 @@ function chooseMilestoneReward(choice){
     showCaptureNotice(`${style.label}으로 바뀌었어요!`,'14일 동안 쌓아온 잘한 일이 집의 새로운 분위기가 되었어요.');
   }
 }
-function interiorDayCount(){ return adminPreviewActive?Math.max(...INTERIOR_ITEMS.map(item=>item.unlockDays),INTERIOR_UNLOCK_DAYS):recordedDayCount(); }
+function interiorDayCount(){ return adminPreviewActive?Math.max(...INTERIOR_ITEMS.map(item=>item.unlockDays),...INTERIOR_ROOMS.map(room=>room.unlockDays),INTERIOR_UNLOCK_DAYS):recordedDayCount(); }
 function activeInteriorLayout(){ return adminPreviewActive?adminInteriorLayout:interiorLayout; }
 function isInteriorUnlocked(){ return adminPreviewActive||recordedDayCount()>=INTERIOR_UNLOCK_DAYS; }
+function interiorRoomById(roomId){ return INTERIOR_ROOMS.find(room=>room.id===roomId)||INTERIOR_ROOMS[0]; }
+function isInteriorRoomUnlocked(room){ return interiorDayCount()>=room.unlockDays; }
+function updateInteriorRoomVisibility(){
+  const days=interiorDayCount();
+  [kitchenGroup,diningGroup,bedGroup,bathGroup].forEach(group=>{ const room=interiorRoomById(group.userData.roomId); group.visible=days>=room.unlockDays; });
+  interiorRoomLockMeshes.forEach(panel=>{ panel.visible=days<interiorRoomById(panel.userData.roomId).unlockDays; });
+}
+function renderInteriorRoomMap(){
+  const days=interiorDayCount();
+  interiorRoomMap.innerHTML=INTERIOR_ROOMS.map(room=>{
+    const unlocked=days>=room.unlockDays;
+    return `<button type="button" class="interior-room-tab${room.id===activeInteriorRoomId?' active':''}${unlocked?' unlocked':' locked'}" data-interior-room="${room.id}" aria-pressed="${room.id===activeInteriorRoomId}" ${unlocked?'':`aria-label="${room.label}, 서로 다른 날 ${room.unlockDays}번 기록 후 공개"`}><span aria-hidden="true">${unlocked?room.icon:'🔒'}</span><b>${unlocked?room.label:'???'}</b><small>${unlocked?'OPEN':`${room.unlockDays}일`}</small></button>`;
+  }).join('');
+}
+function updateInteriorRoomPanel(){
+  const room=interiorRoomById(activeInteriorRoomId);
+  roomActionIcon.textContent=room.icon;
+  roomActionTitle.textContent=room.label;
+  roomActionDescription.textContent=room.description;
+  interiorActivityButton.textContent=room.action;
+  interiorRoomAction.dataset.room=room.id;
+  interiorInventoryTitle.textContent=`${room.label} 아이템`;
+  interiorInventoryHelp.textContent=`${room.label}에서 사용할 아이템을 골라, 표시된 공간 안에 놓아보세요.`;
+  const next=INTERIOR_ROOMS.find(candidate=>!isInteriorRoomUnlocked(candidate));
+  futureRoomCard.hidden=!next;
+  if(next){
+    futureRoomTitle.textContent=`${next.label} · 아직 비공개`;
+    futureRoomDescription.textContent=`서로 다른 날 ${next.unlockDays}번 기록하면 ${next.icon} ${next.action} 활동과 아이템이 열려요.`;
+  }
+  const openCount=INTERIOR_ROOMS.filter(isInteriorRoomUnlocked).length;
+  interiorProgressCopy.textContent=adminPreviewActive?'관리자 · 모든 방 공개':`${openCount}/${INTERIOR_ROOMS.length} 공간 공개`;
+  updateInteriorRoomVisibility();
+}
+function selectInteriorRoom(roomId,{focus=true}={}){
+  const room=interiorRoomById(roomId);
+  if(!isInteriorRoomUnlocked(room)){
+    showCaptureNotice(`${room.label}은 아직 비공개예요`,`서로 다른 날에 ${room.unlockDays}번 기록하면 새로운 공간과 활동이 열려요.`);
+    return;
+  }
+  activeInteriorRoomId=room.id;
+  if(focus){ interiorTarget.set(...room.target); interiorDistance=9.7; }
+  renderInteriorRoomMap();
+  updateInteriorRoomPanel();
+  renderInteriorInventory();
+}
+function runInteriorActivity(){
+  const room=interiorRoomById(activeInteriorRoomId);
+  const messages={
+    living:['포근한 소파에 앉아 오늘 적어둔 잘한 일을 천천히 돌아봤어요.'],
+    entry:['오늘의 마음을 현관에 살며시 내려두고 따뜻한 집으로 들어왔어요.'],
+    kitchen:['따뜻한 채소 수프를 완성했어요.','말랑한 포도 팬케이크를 만들었어요.','향긋한 허브 차를 우려냈어요.'],
+    bedroom:['조명을 낮추고 오늘의 나에게 “수고했어”라고 말해줬어요.'],
+    bathroom:['따뜻한 물로 씻으며 오늘의 피로를 다정하게 돌봤어요.'],
+    terrace:['테라스 화분에 물을 주었어요. 새잎이 조금 더 반짝여요.']
+  };
+  const choices=messages[room.id]||['집 안에서 따뜻한 시간을 보냈어요.'];
+  const message=choices[Math.floor(Math.random()*choices.length)];
+  showCaptureNotice(`${room.icon} ${room.action} 완료`,message);
+}
 function updateDoorMissionUI(){
   const days=recordedDayCount();
   const progress=Math.min(days,INTERIOR_UNLOCK_DAYS);
@@ -1321,9 +1442,19 @@ function ensureInteriorLayout(){
   const days=interiorDayCount();
   let changed=false;
   INTERIOR_ITEMS.filter(item=>days>=item.unlockDays).forEach(item=>{
-    if(layout[item.id]) return;
-    layout[item.id]={x:item.x,y:item.y,placed:true};
-    changed=true;
+    if(!layout[item.id]){
+      layout[item.id]={x:item.x,y:item.y,placed:true};
+      changed=true;
+      return;
+    }
+    const room=interiorRoomById(item.room);
+    const position=interiorLayoutToPosition(layout[item.id]);
+    const clampedX=THREE.MathUtils.clamp(position.x,room.bounds.x[0],room.bounds.x[1]);
+    const clampedZ=THREE.MathUtils.clamp(position.z,room.bounds.z[0],room.bounds.z[1]);
+    if(Math.abs(clampedX-position.x)>.001||Math.abs(clampedZ-position.z)>.001){
+      layout[item.id]={...layout[item.id],...interiorPositionToLayout(clampedX,clampedZ)};
+      changed=true;
+    }
   });
   if(changed&&!adminPreviewActive) saveInteriorLayout();
 }
@@ -1335,9 +1466,10 @@ function renderInteriorItems(){
 function renderInteriorInventory(){
   const days=interiorDayCount();
   const layout=activeInteriorLayout();
-  const unlocked=INTERIOR_ITEMS.filter(item=>days>=item.unlockDays);
+  const roomItems=INTERIOR_ITEMS.filter(item=>item.room===activeInteriorRoomId);
+  const unlocked=roomItems.filter(item=>days>=item.unlockDays);
   interiorItemCount.textContent=adminPreviewActive?`${unlocked.length}개 체험`:`${unlocked.length}개 보유`;
-  interiorInventoryList.innerHTML=INTERIOR_ITEMS.map(item=>{
+  interiorInventoryList.innerHTML=roomItems.map(item=>{
     const available=days>=item.unlockDays;
     const placed=available&&layout[item.id]?.placed!==false;
     const status=available?(placed?(adminPreviewActive?'미리 배치됨 · 눌러 보관':'방에 배치됨 · 눌러 보관'):(adminPreviewActive?'체험 보관함 · 눌러 배치':'획득 완료 · 눌러 방에 놓기')):`${item.unlockDays}번째 기록 후 공개`;
@@ -1448,7 +1580,10 @@ function moveInteriorControl(event){
   if(interiorControl.mode==='item'){
     setInteriorPointer(event);
     if(interiorRaycaster.ray.intersectPlane(interiorGroundPlane,interiorGroundPoint)){
-      const x=THREE.MathUtils.clamp(interiorGroundPoint.x,-3.05,3.05),z=THREE.MathUtils.clamp(interiorGroundPoint.z,-2.75,2.75);
+      const item=INTERIOR_ITEMS.find(candidate=>candidate.id===interiorControl.id);
+      const room=interiorRoomById(item?.room||activeInteriorRoomId);
+      const x=THREE.MathUtils.clamp(interiorGroundPoint.x,room.bounds.x[0],room.bounds.x[1]);
+      const z=THREE.MathUtils.clamp(interiorGroundPoint.z,room.bounds.z[0],room.bounds.z[1]);
       interiorControl.item.position.set(x,.12,z);
       const saved=interiorPositionToLayout(x,z),layout=activeInteriorLayout();
       layout[interiorControl.id]={...(layout[interiorControl.id]||{}),...saved,placed:true};
@@ -1792,6 +1927,11 @@ interiorCanvas.addEventListener('pointermove',moveInteriorControl,{passive:false
 interiorCanvas.addEventListener('pointerup',finishInteriorControl);
 interiorCanvas.addEventListener('pointercancel',finishInteriorControl);
 interiorCanvas.addEventListener('wheel',event=>{ interiorDistance=THREE.MathUtils.clamp(interiorDistance+event.deltaY*.008,8.4,17); event.preventDefault(); },{passive:false});
+interiorRoomMap.addEventListener('click',event=>{
+  const button=event.target.closest('[data-interior-room]');
+  if(button) selectInteriorRoom(button.dataset.interiorRoom);
+});
+interiorActivityButton.addEventListener('click',runInteriorActivity);
 interiorInventoryList.addEventListener('click',event=>{
   const button=event.target.closest('[data-inventory-item]');
   if(!button) return;
@@ -1810,6 +1950,8 @@ interiorInventoryList.addEventListener('click',event=>{
   layout[item.id]={...current,placed:current.placed===false};
   saveInteriorLayout();
   renderInteriorItems();
+  renderInteriorRoomMap();
+  updateInteriorRoomPanel();
   renderInteriorInventory();
 });
 document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&interiorView.classList.contains('open')) closeInterior(); });

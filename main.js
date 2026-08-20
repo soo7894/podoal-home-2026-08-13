@@ -67,7 +67,7 @@ const interiorRoomAction = document.querySelector('#interior-room-action');
 const roomActionIcon = document.querySelector('#room-action-icon');
 const roomActionTitle = document.querySelector('#room-action-title');
 const roomActionDescription = document.querySelector('#room-action-description');
-const interiorActivityButton = document.querySelector('#interior-activity-button');
+const interiorActivityButtons = document.querySelector('#interior-activity-buttons');
 const interiorInventoryTitle = document.querySelector('#interior-inventory-title');
 const interiorInventoryHelp = document.querySelector('#interior-inventory-help');
 const futureRoomCard = document.querySelector('#future-room-card');
@@ -165,12 +165,26 @@ const INTERIOR_ITEMS = [
   {id:'leaf-pot',label:'둥근 잎 화분',room:'living',unlockDays:3,x:84,y:62},
   {id:'mood-lamp',label:'작은 무드등',room:'living',unlockDays:3,x:62,y:54},
   {id:'book-stack',label:'저녁 책 더미',room:'living',unlockDays:5,x:76,y:80},
+  {id:'small-radio',label:'작은 라디오',room:'living',unlockDays:5,x:57,y:78},
+  {id:'warm-sofa',label:'포근한 소파',room:'living',unlockDays:7,x:77,y:61},
   {id:'picnic-basket',label:'포도 바구니',room:'kitchen',unlockDays:7,x:70,y:31},
   {id:'tea-set',label:'살구 찻잔 세트',room:'kitchen',unlockDays:7,x:58,y:27},
+  {id:'ramen-pot',label:'보글보글 냄비',room:'kitchen',unlockDays:7,x:82,y:37},
   {id:'soft-cushion',label:'살구 쿠션',room:'bedroom',unlockDays:14,x:27,y:70},
   {id:'sleep-lamp',label:'달빛 협탁등',room:'bedroom',unlockDays:14,x:36,y:58},
   {id:'bath-basket',label:'포근한 수건 바구니',room:'bathroom',unlockDays:30,x:16,y:29},
   {id:'terrace-planter',label:'테라스 화분',room:'terrace',unlockDays:60,x:28,y:88}
+];
+const INTERIOR_ACTIVITIES = [
+  {id:'door',label:'현관문 열기',closedLabel:'현관문 닫기',icon:'🚪',rooms:['entry'],message:'현관문을 열어 지금의 마당을 바라봤어요.'},
+  {id:'coffee',label:'커피 마시기',icon:'☕',rooms:['living','kitchen'],requires:['tea-set'],message:'따뜻한 커피 향이 집 안에 천천히 퍼져요.'},
+  {id:'ramen',label:'라면 먹기',icon:'🍜',rooms:['kitchen'],requires:['ramen-pot'],message:'보글보글 끓인 라면으로 든든한 시간을 보냈어요.'},
+  {id:'read',label:'책 보기',icon:'📖',rooms:['living','bedroom'],requires:['book-stack'],message:'책장을 천천히 넘기며 조용한 시간을 보냈어요.'},
+  {id:'music',label:'노래 듣기',icon:'♫',rooms:['living','bedroom'],requires:['small-radio'],message:'작은 라디오에서 포근한 멜로디가 흘러나와요.'},
+  {id:'water',label:'화분 물주기',icon:'💧',rooms:['living','terrace'],requiresAny:['leaf-pot','terrace-planter'],message:'화분에 물을 주니 잎이 한층 반짝여요.'},
+  {id:'sofa',label:'소파에 앉기',icon:'🛋️',rooms:['living'],requires:['warm-sofa'],message:'포근한 소파에 기대어 잠시 편안하게 쉬었어요.'},
+  {id:'selfcare',label:'나 돌보기',icon:'🫧',rooms:['bathroom'],message:'따뜻한 물로 씻으며 오늘의 피로를 다정하게 돌봤어요.'},
+  {id:'sleep',label:'잘 준비하기',icon:'🌙',rooms:['bedroom'],message:'조명을 낮추고 오늘의 나에게 수고했다고 말해줬어요.'}
 ];
 const DECOR_ART = {
   flower:'<path d="M29 42h15l-2-13H31z" fill="#d97855"/><path d="M36 29v-12" stroke="#4f7d50" stroke-width="3"/><g fill="#ef90a3"><circle cx="36" cy="15" r="6"/><circle cx="29" cy="20" r="6"/><circle cx="43" cy="20" r="6"/><circle cx="31" cy="27" r="6"/><circle cx="41" cy="27" r="6"/></g><circle cx="36" cy="21" r="4" fill="#f8cb50"/>',
@@ -223,8 +237,11 @@ function interiorItemMarkup(type){
   if(type==='mood-lamp') return '<span class="interior-item-art art-lamp"><i></i><b></b><em></em></span>';
   if(type==='soft-cushion') return '<span class="interior-item-art art-cushion"><i></i><b></b></span>';
   if(type==='book-stack') return '<span class="interior-item-art art-books"><i></i><b></b><em></em></span>';
+  if(type==='small-radio') return '<span class="interior-item-art art-radio"><i></i><b></b><em></em></span>';
+  if(type==='warm-sofa') return '<span class="interior-item-art art-sofa"><i></i><b></b><em></em></span>';
   if(type==='picnic-basket'||type==='bath-basket') return '<span class="interior-item-art art-basket"><i></i><b></b><em></em></span>';
   if(type==='tea-set') return '<span class="interior-item-art art-tea"><i></i><b></b><em></em></span>';
+  if(type==='ramen-pot') return '<span class="interior-item-art art-ramen"><i></i><b></b><em></em></span>';
   if(type==='sleep-lamp') return '<span class="interior-item-art art-sleep-lamp"><i></i><b></b><em></em></span>';
   return '<span class="interior-item-art art-terrace-planter"><i></i><i></i><b></b></span>';
 }
@@ -496,7 +513,7 @@ function toggleInteriorEntranceDoor(){
   interiorEntranceDoorTarget=interiorEntranceDoorOpen?INTERIOR_ENTRANCE_OPEN_ANGLE:0;
   if(interiorEntranceDoorOpen) syncInteriorGardenPreview();
   roomActionDescription.textContent=interiorEntranceDoorOpen?'열린 문 너머로 지금의 마당이 보여요.':'문을 열면 내가 꾸민 마당이 그대로 보여요.';
-  interiorActivityButton.textContent=interiorEntranceDoorOpen?'현관문 닫기':'현관문 열기';
+  if(activeInteriorRoomId==='entry') renderInteriorActivities();
 }
 
 // Window and warm pendant repeat the exterior palette and toy proportions.
@@ -579,8 +596,11 @@ function buildInterior3DItem(item){
   if(type==='mood-lamp'){ interiorCylinder(.20,.26,.09,palette.wood,new THREE.Vector3(0,.05,0),group); interiorCylinder(.035,.045,.74,palette.dark,new THREE.Vector3(0,.45,0),group,12); const shade=interiorMesh(new THREE.ConeGeometry(.33,.42,18,1,true),0xf2c44f,new THREE.Vector3(0,.90,0),group); shade.rotation.x=Math.PI; const glow=new THREE.PointLight(0xffcf73,.75,2.6,2); glow.position.set(0,.78,0); group.add(glow); }
   if(type==='soft-cushion'){ const cushion=interiorSphere(.48,0xee8c72,new THREE.Vector3(0,.30,0),group); cushion.scale.set(1,.58,.88); cushion.rotation.y=.18; }
   if(type==='book-stack'){ const colors=[0x6e9c91,0xdf795e,0xefbb50]; colors.forEach((color,index)=>{ const book=interiorBox(.72,.14,.46,color,new THREE.Vector3((index-1)*.025,.09+index*.15,0),group); book.rotation.y=(index-1)*.08; }); }
+  if(type==='small-radio'){ interiorBox(.72,.43,.32,0x6f9f97,new THREE.Vector3(0,.24,0),group); interiorSphere(.14,0xf0c45c,new THREE.Vector3(-.18,.25,.18),group); interiorSphere(.045,palette.dark,new THREE.Vector3(.22,.28,.18),group); interiorCylinder(.018,.018,.52,palette.dark,new THREE.Vector3(.26,.64,0),group,8); }
+  if(type==='warm-sofa'){ interiorBox(1.38,.42,.66,0xe58b72,new THREE.Vector3(0,.28,0),group); interiorBox(1.40,.66,.22,0xd97865,new THREE.Vector3(0,.67,-.23),group); for(const x of [-.68,.68]) interiorBox(.20,.55,.66,0xc96f5f,new THREE.Vector3(x,.42,0),group); for(const x of [-.32,.32]){ const cushion=interiorSphere(.31,0xf1ad8e,new THREE.Vector3(x,.58,.12),group); cushion.scale.set(1,.68,.45); } }
   if(type==='picnic-basket'){ interiorCylinder(.40,.34,.42,0xc9844c,new THREE.Vector3(0,.23,0),group,18); const handle=interiorMesh(new THREE.TorusGeometry(.31,.045,8,20,Math.PI),palette.wood,new THREE.Vector3(0,.47,0),group); handle.rotation.z=Math.PI; handle.rotation.y=Math.PI/2; interiorSphere(.10,0x8e648f,new THREE.Vector3(-.13,.48,.18),group); interiorSphere(.10,0xb8799c,new THREE.Vector3(.10,.48,.18),group); }
   if(type==='tea-set'){ interiorCylinder(.48,.50,.07,palette.wood,new THREE.Vector3(0,.05,0),group,24); for(const x of [-.18,.18]){ interiorCylinder(.14,.12,.22,0xfff4d7,new THREE.Vector3(x,.19,0),group,18); const handle=interiorMesh(new THREE.TorusGeometry(.10,.025,7,14),0xe6a24c,new THREE.Vector3(x+.12,.20,0),group); handle.rotation.x=Math.PI/2; } }
+  if(type==='ramen-pot'){ interiorCylinder(.34,.31,.26,0xe66f52,new THREE.Vector3(0,.16,0),group,20); interiorCylinder(.29,.29,.035,0xffd56b,new THREE.Vector3(0,.31,0),group,20); for(const x of [-.46,.46]) interiorBox(.28,.06,.10,palette.dark,new THREE.Vector3(x,.22,0),group); for(const x of [-.14,0,.14]){ const noodle=interiorMesh(new THREE.TorusGeometry(.11,.018,6,14,Math.PI),0xffec9a,new THREE.Vector3(x,.35,0),group); noodle.rotation.x=Math.PI/2; } }
   if(type==='sleep-lamp'){ interiorCylinder(.20,.25,.10,palette.wood,new THREE.Vector3(0,.05,0),group); interiorCylinder(.035,.04,.43,palette.dark,new THREE.Vector3(0,.31,0),group,12); const shade=interiorMesh(new THREE.ConeGeometry(.28,.34,18,1,true),0xf0a780,new THREE.Vector3(0,.62,0),group); shade.rotation.x=Math.PI; const glow=new THREE.PointLight(0xffcc86,.55,2.1,2); glow.position.set(0,.54,0); group.add(glow); }
   if(type==='bath-basket'){ interiorBox(.68,.34,.48,0xc98752,new THREE.Vector3(0,.19,0),group); for(const [x,c] of [[-.20,0xfff4d7],[0,0xf0b58d],[.20,0x8fb6ad]]){ const towel=interiorCylinder(.105,.105,.42,c,new THREE.Vector3(x,.44,0),group,16); towel.rotation.z=Math.PI/2; } }
   if(type==='terrace-planter'){ interiorCylinder(.31,.40,.44,palette.pot,new THREE.Vector3(0,.23,0),group); for(const [x,z,c] of [[-.17,0,0x5d9456],[.16,.03,0x74a65f],[0,-.14,0x4e8250]]){ const leaf=interiorSphere(.28,c,new THREE.Vector3(x,.67,z),group); leaf.scale.set(.7,1.2,.5); } }
@@ -1544,11 +1564,10 @@ function updateInteriorRoomPanel(){
   roomActionIcon.textContent=room.icon;
   roomActionTitle.textContent=room.label;
   roomActionDescription.textContent=room.description;
-  interiorActivityButton.textContent=room.action;
   if(room.id==='entry'){
     roomActionDescription.textContent=interiorEntranceDoorOpen?'열린 문 너머로 지금의 마당이 보여요.':room.description;
-    interiorActivityButton.textContent=interiorEntranceDoorOpen?'현관문 닫기':room.action;
   }
+  renderInteriorActivities();
   interiorRoomAction.dataset.room=room.id;
   interiorInventoryTitle.textContent=`${room.label} 아이템`;
   interiorInventoryHelp.textContent=`${room.label}에서 사용할 아이템을 골라, 표시된 공간 안에 놓아보세요.`;
@@ -1574,23 +1593,87 @@ function selectInteriorRoom(roomId,{focus=true}={}){
   updateInteriorRoomPanel();
   renderInteriorInventory();
 }
-function runInteriorActivity(){
-  const room=interiorRoomById(activeInteriorRoomId);
-  if(room.id==='entry'){
-    toggleInteriorEntranceDoor();
+function activityRequirement(activity){
+  const days=interiorDayCount();
+  const layout=activeInteriorLayout();
+  const isPlaced=id=>{
+    const item=INTERIOR_ITEMS.find(candidate=>candidate.id===id);
+    return Boolean(item&&days>=item.unlockDays&&layout[id]?.placed!==false&&layout[id]);
+  };
+  const required=activity.requires||[];
+  const requiredAny=activity.requiresAny||[];
+  const missing=required.filter(id=>!isPlaced(id));
+  const anyReady=!requiredAny.length||requiredAny.some(isPlaced);
+  const available=!missing.length&&anyReady;
+  const missingIds=[...missing,...(!anyReady?requiredAny:[])];
+  const missingLabels=missingIds.map(id=>INTERIOR_ITEMS.find(item=>item.id===id)?.label).filter(Boolean);
+  const itemId=required.find(isPlaced)||requiredAny.find(isPlaced)||'';
+  return {available,missingLabels,itemId};
+}
+function renderInteriorActivities(){
+  const activities=INTERIOR_ACTIVITIES.filter(activity=>activity.rooms.includes(activeInteriorRoomId));
+  interiorActivityButtons.innerHTML=activities.map(activity=>{
+    const requirement=activityRequirement(activity);
+    const label=activity.id==='door'&&interiorEntranceDoorOpen?activity.closedLabel:activity.label;
+    const note=requirement.available?'언제든 가능':`${requirement.missingLabels.join(' 또는 ')} 필요`;
+    return `<button type="button" class="room-activity-button${requirement.available?' available':' locked'}" data-interior-activity="${activity.id}" aria-disabled="${!requirement.available}" title="${note}"><span aria-hidden="true">${activity.icon}</span><b>${label}</b><small>${note}</small></button>`;
+  }).join('');
+}
+function playInteriorMelody(){
+  if(document.querySelector('#sound-button')?.classList.contains('muted')) return;
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass) return;
+  const context=new AudioContextClass();
+  const now=context.currentTime;
+  [523.25,659.25,783.99,659.25].forEach((frequency,index)=>{
+    const oscillator=context.createOscillator();
+    const gain=context.createGain();
+    oscillator.type='sine'; oscillator.frequency.value=frequency;
+    gain.gain.setValueAtTime(.0001,now+index*.18);
+    gain.gain.exponentialRampToValueAtTime(.055,now+index*.18+.025);
+    gain.gain.exponentialRampToValueAtTime(.0001,now+index*.18+.17);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(now+index*.18); oscillator.stop(now+index*.18+.18);
+  });
+  setTimeout(()=>context.close(),1100);
+}
+function animateInteriorActivity(activity,itemId){
+  const group=interior3DItemsGroup.children.find(child=>child.userData.interiorItemId===itemId);
+  if(activity.id==='music') playInteriorMelody();
+  if(!group||group.userData.activityAnimating) return;
+  group.userData.activityAnimating=true;
+  const start=performance.now();
+  const baseY=group.position.y;
+  const baseRotation=group.rotation.y;
+  const baseScale=group.scale.clone();
+  if(activity.id==='sofa'){
+    interiorTarget.set(group.position.x,.55,group.position.z);
+    interiorDistance=3.1;
+  }
+  const animate=now=>{
+    const progress=Math.min((now-start)/900,1);
+    const wave=Math.sin(progress*Math.PI*4)*(1-progress*.35);
+    if(['coffee','ramen'].includes(activity.id)) group.position.y=baseY+Math.abs(Math.sin(progress*Math.PI*2))*.22;
+    if(activity.id==='read') group.rotation.y=baseRotation+wave*.18;
+    if(activity.id==='music') group.scale.setScalar(1+Math.abs(wave)*.10);
+    if(activity.id==='water') group.scale.set(baseScale.x*(1+Math.abs(wave)*.06),baseScale.y*(1+Math.abs(wave)*.16),baseScale.z*(1+Math.abs(wave)*.06));
+    if(activity.id==='sofa') group.position.y=baseY+Math.abs(wave)*.04;
+    if(progress<1) requestAnimationFrame(animate);
+    else { group.position.y=baseY; group.rotation.y=baseRotation; group.scale.copy(baseScale); group.userData.activityAnimating=false; }
+  };
+  requestAnimationFrame(animate);
+}
+function runInteriorActivity(activityId){
+  const activity=INTERIOR_ACTIVITIES.find(candidate=>candidate.id===activityId&&candidate.rooms.includes(activeInteriorRoomId));
+  if(!activity) return;
+  const requirement=activityRequirement(activity);
+  if(!requirement.available){
+    showCaptureNotice(`${activity.label} 준비가 필요해요`,`${requirement.missingLabels.join(' 또는 ')} 아이템을 얻어 방에 배치하면 언제든 할 수 있어요.`);
     return;
   }
-  const messages={
-    living:['포근한 소파에 앉아 오늘 적어둔 잘한 일을 천천히 돌아봤어요.'],
-    entry:['오늘의 마음을 현관에 살며시 내려두고 따뜻한 집으로 들어왔어요.'],
-    kitchen:['따뜻한 채소 수프를 완성했어요.','말랑한 포도 팬케이크를 만들었어요.','향긋한 허브 차를 우려냈어요.'],
-    bedroom:['조명을 낮추고 오늘의 나에게 “수고했어”라고 말해줬어요.'],
-    bathroom:['따뜻한 물로 씻으며 오늘의 피로를 다정하게 돌봤어요.'],
-    terrace:['테라스 화분에 물을 주었어요. 새잎이 조금 더 반짝여요.']
-  };
-  const choices=messages[room.id]||['집 안에서 따뜻한 시간을 보냈어요.'];
-  const message=choices[Math.floor(Math.random()*choices.length)];
-  showCaptureNotice(`${room.icon} ${room.action} 완료`,message);
+  if(activity.id==='door'){ toggleInteriorEntranceDoor(); return; }
+  animateInteriorActivity(activity,requirement.itemId);
+  showCaptureNotice(`${activity.icon} ${activity.label}`,`${activity.message} 활동은 기록 일수와 보상 횟수에는 영향을 주지 않아요.`);
 }
 function updateDoorMissionUI(){
   const days=recordedDayCount();
@@ -2129,7 +2212,10 @@ interiorRoomMap.addEventListener('click',event=>{
   const button=event.target.closest('[data-interior-room]');
   if(button) selectInteriorRoom(button.dataset.interiorRoom);
 });
-interiorActivityButton.addEventListener('click',runInteriorActivity);
+interiorActivityButtons.addEventListener('click',event=>{
+  const button=event.target.closest('[data-interior-activity]');
+  if(button) runInteriorActivity(button.dataset.interiorActivity);
+});
 interiorInventoryList.addEventListener('click',event=>{
   const button=event.target.closest('[data-inventory-item]');
   if(!button) return;

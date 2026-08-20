@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=23" />
+    <link rel="stylesheet" href="./styles.css?v=24" />
   </head>
   <body>
     <main class="app-shell">
@@ -286,6 +286,12 @@
             <div><p>MY INTERIOR ITEMS</p><h3 id="interior-inventory-title">거실 아이템</h3></div>
             <span id="interior-item-count">0개 보유</span>
           </div>
+          <nav class="interior-style-tabs" id="interior-style-tabs" aria-label="실내 꾸미기 종류">
+            <button class="active" type="button" data-interior-category="items" aria-pressed="true"><span aria-hidden="true">▣</span>가구</button>
+            <button type="button" data-interior-category="wall-decor" aria-pressed="false"><span aria-hidden="true">▧</span>벽 장식</button>
+            <button type="button" data-interior-category="wallpaper" aria-pressed="false"><span aria-hidden="true">▤</span>벽지</button>
+            <button type="button" data-interior-category="floor" aria-pressed="false"><span aria-hidden="true">▦</span>바닥</button>
+          </nav>
           <p class="inventory-help" id="interior-inventory-help">거실에서 사용할 아이템을 골라 원하는 곳에 놓아보세요.</p>
           <div class="inventory-list" id="interior-inventory-list"></div>
           <section class="future-room-card" id="future-room-card">
@@ -295,6 +301,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=111"></script>
+    <script type="module" src="./main.js?v=112"></script>
   </body>
 </html>

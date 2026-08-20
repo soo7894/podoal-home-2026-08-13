@@ -58,6 +58,7 @@ const interiorRoom = document.querySelector('#interior-room');
 const interiorCanvas = document.querySelector('#interior-canvas');
 const interiorItems = document.querySelector('#interior-items');
 const interiorInventoryList = document.querySelector('#interior-inventory-list');
+const interiorStyleTabs = document.querySelector('#interior-style-tabs');
 const interiorItemCount = document.querySelector('#interior-item-count');
 const interiorHouseName = document.querySelector('#interior-house-name');
 const interiorRoomMap = document.querySelector('#interior-room-map');
@@ -83,6 +84,7 @@ const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const INTERIOR_LAYOUT_KEY = 'my-little-day-interior-layout-v1';
+const INTERIOR_STYLE_KEY = 'my-little-day-interior-style-v1';
 const REMINDER_STORAGE_KEY = 'my-little-day-reminders-v1';
 const REMINDER_LAST_FIRED_KEY = 'my-little-day-reminder-last-fired-v1';
 const MILESTONE_REWARDS_KEY = 'my-little-day-milestone-rewards-v1';
@@ -124,7 +126,9 @@ let currentRewardAction = null;
 let adminPreviewActive = false;
 let adminFutureDecorCounter = 0;
 let activeInteriorRoomId = 'living';
+let activeInteriorInventoryCategory = 'items';
 let adminInteriorLayout = {};
+let adminInteriorStyle = {};
 let adminPreviewRewards = {rareItem:'',exteriorStyle:''};
 let adminDecorLayoutSnapshot = null;
 const DECOR_OPTIONS = [
@@ -174,6 +178,24 @@ const INTERIOR_ITEMS = [
   {id:'sleep-lamp',label:'달빛 협탁등',room:'bedroom',unlockDays:14,x:36,y:58},
   {id:'bath-basket',label:'포근한 수건 바구니',room:'bathroom',unlockDays:30,x:16,y:29},
   {id:'terrace-planter',label:'테라스 화분',room:'terrace',unlockDays:60,x:28,y:88}
+];
+const INTERIOR_WALLPAPERS = [
+  {id:'sun-cream',label:'햇살 크림',unlockDays:3,base:'#fff1c9',accent:'#edc77c',pattern:'plain'},
+  {id:'sage-stripe',label:'세이지 줄무늬',unlockDays:3,base:'#dbe3b6',accent:'#a8bd82',pattern:'stripe'},
+  {id:'peach-dot',label:'살구 도트',unlockDays:7,base:'#f8d5b3',accent:'#e99b7c',pattern:'dot'},
+  {id:'grape-bloom',label:'포도 꽃무늬',unlockDays:14,base:'#eee0c8',accent:'#9b718e',pattern:'bloom'}
+];
+const INTERIOR_FLOORS = [
+  {id:'honey-wood',label:'꿀빛 원목',unlockDays:3,base:'#d99551',accent:'#b86c42',pattern:'wood'},
+  {id:'light-oak',label:'밝은 참나무',unlockDays:3,base:'#e8c584',accent:'#c89d61',pattern:'wood'},
+  {id:'cream-check',label:'크림 체크 타일',unlockDays:7,base:'#f2dfb3',accent:'#d9a96d',pattern:'check'},
+  {id:'sage-tile',label:'세이지 타일',unlockDays:14,base:'#b9c9a2',accent:'#779276',pattern:'tile'}
+];
+const INTERIOR_WALL_DECORS = [
+  {id:'grape-frame',label:'포도 그림',icon:'🍇',unlockDays:3},
+  {id:'sun-mirror',label:'햇살 거울',icon:'☀',unlockDays:5},
+  {id:'tiny-shelf',label:'작은 벽 선반',icon:'▰',unlockDays:7},
+  {id:'warm-garland',label:'따뜻한 가랜드',icon:'⌒',unlockDays:14}
 ];
 const INTERIOR_ACTIVITIES = [
   {id:'door',label:'현관문 열기',closedLabel:'현관문 닫기',icon:'🚪',rooms:['entry'],message:'현관문을 열어 지금의 마당을 바라봤어요.'},
@@ -372,6 +394,16 @@ let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREA
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = sharedHome?.houseName ?? (localStorage.getItem(HOUSE_NAME_KEY) || '우리');
 let interiorLayout = isSharedHome ? {} : JSON.parse(localStorage.getItem(INTERIOR_LAYOUT_KEY) || '{}');
+function loadInteriorStyle(){
+  let saved={};
+  try { saved=JSON.parse(localStorage.getItem(INTERIOR_STYLE_KEY)||'{}')||{}; } catch {}
+  return {
+    wallpaper:typeof saved.wallpaper==='string'?saved.wallpaper:'sun-cream',
+    floor:typeof saved.floor==='string'?saved.floor:'honey-wood',
+    wallDecor:saved.wallDecor&&typeof saved.wallDecor==='object'?saved.wallDecor:{}
+  };
+}
+let interiorStyle=isSharedHome?{wallpaper:'sun-cream',floor:'honey-wood',wallDecor:{}}:loadInteriorStyle();
 function loadMilestoneRewards(){
   try { return JSON.parse(localStorage.getItem(MILESTONE_REWARDS_KEY)||'{}')||{}; }
   catch { return {}; }
@@ -441,18 +473,20 @@ function interiorCylinder(rt,rb,h,color,position,parent=interiorWorld,segments=1
 function interiorSphere(radius,color,position,parent=interiorWorld){ return interiorMesh(new THREE.SphereGeometry(radius,18,14),color,position,parent); }
 
 const interiorFloorGroup=new THREE.Group(); interiorWorld.add(interiorFloorGroup);
-interiorCylinder(4.95,5.08,.36,0xb8663d,new THREE.Vector3(0,-.26,0),interiorFloorGroup,48);
-interiorBox(7.08,.18,7.08,0xd99551,new THREE.Vector3(0,.02,0),interiorFloorGroup);
-for(let index=0;index<8;index++) interiorBox(.035,.012,7.02,0xb86c42,new THREE.Vector3(-3.05+index*.87,.12,0),interiorFloorGroup);
+const interiorFloorBase=interiorCylinder(4.95,5.08,.36,0xb8663d,new THREE.Vector3(0,-.26,0),interiorFloorGroup,48);
+const interiorFloorSurface=interiorBox(7.08,.18,7.08,0xd99551,new THREE.Vector3(0,.02,0),interiorFloorGroup);
+const interiorFloorSeams=[];
+for(let index=0;index<8;index++) interiorFloorSeams.push(interiorBox(.035,.012,7.02,0xb86c42,new THREE.Vector3(-3.05+index*.87,.12,0),interiorFloorGroup));
 
 const interiorRoomBackWall=new THREE.Group(); interiorWorld.add(interiorRoomBackWall);
 const interiorRoomLeftWall=new THREE.Group(); interiorWorld.add(interiorRoomLeftWall);
 const interiorRoomRightWall=new THREE.Group(); interiorWorld.add(interiorRoomRightWall);
-interiorBox(.58,3.55,.18,palette.wall,new THREE.Vector3(-3.25,1.83,-3.45),interiorRoomBackWall);
-interiorBox(5.42,3.55,.18,palette.wall,new THREE.Vector3(.78,1.83,-3.45),interiorRoomBackWall);
-interiorBox(1.04,1.04,.18,palette.wall,new THREE.Vector3(-2.43,3.08,-3.45),interiorRoomBackWall);
-interiorBox(.18,3.55,7.08,palette.wall,new THREE.Vector3(-3.46,1.83,0),interiorRoomLeftWall);
-interiorBox(.18,3.55,7.08,palette.wall,new THREE.Vector3(3.46,1.83,0),interiorRoomRightWall);
+const interiorWallSurfaceMeshes=[];
+interiorWallSurfaceMeshes.push(interiorBox(.58,3.55,.18,palette.wall,new THREE.Vector3(-3.25,1.83,-3.45),interiorRoomBackWall));
+interiorWallSurfaceMeshes.push(interiorBox(5.42,3.55,.18,palette.wall,new THREE.Vector3(.78,1.83,-3.45),interiorRoomBackWall));
+interiorWallSurfaceMeshes.push(interiorBox(1.04,1.04,.18,palette.wall,new THREE.Vector3(-2.43,3.08,-3.45),interiorRoomBackWall));
+interiorWallSurfaceMeshes.push(interiorBox(.18,3.55,7.08,palette.wall,new THREE.Vector3(-3.46,1.83,0),interiorRoomLeftWall));
+interiorWallSurfaceMeshes.push(interiorBox(.18,3.55,7.08,palette.wall,new THREE.Vector3(3.46,1.83,0),interiorRoomRightWall));
 interiorBox(7.08,.16,.20,palette.trim,new THREE.Vector3(0,.19,-3.31),interiorRoomBackWall);
 interiorBox(.20,.16,7.08,palette.trim,new THREE.Vector3(-3.31,.19,0),interiorRoomLeftWall);
 interiorBox(.20,.16,7.08,palette.trim,new THREE.Vector3(3.31,.19,0),interiorRoomRightWall);
@@ -549,6 +583,66 @@ interiorBox(1.62,1.25,.07,palette.glass,new THREE.Vector3(.05,2.22,-3.31),interi
 interiorBox(.10,1.42,.10,palette.cream,new THREE.Vector3(.05,2.22,-3.25),interiorRoomBackWall);
 interiorBox(1.82,.10,.10,palette.cream,new THREE.Vector3(.05,2.22,-3.25),interiorRoomBackWall);
 interiorBox(1.88,.15,.14,palette.roof,new THREE.Vector3(.05,2.91,-3.24),interiorRoomBackWall);
+
+// Wall decorations live on the actual 3D wall and can be shown or stored
+// independently, just like the furniture on the floor.
+const interiorWallDecorGroup=new THREE.Group(); interiorRoomBackWall.add(interiorWallDecorGroup);
+const interiorWallDecorObjects={};
+function createWallDecorGroup(id){ const group=new THREE.Group(); group.userData.styleId=id; interiorWallDecorGroup.add(group); interiorWallDecorObjects[id]=group; return group; }
+const grapeFrameGroup=createWallDecorGroup('grape-frame');
+interiorBox(.88,.72,.08,palette.wood,new THREE.Vector3(1.66,2.31,-3.28),grapeFrameGroup);
+interiorBox(.69,.53,.09,0xffedc3,new THREE.Vector3(1.66,2.31,-3.22),grapeFrameGroup);
+for(const [x,y] of [[1.52,2.39],[1.67,2.42],[1.58,2.26],[1.73,2.27],[1.65,2.13]]) interiorSphere(.105,0x9b718e,new THREE.Vector3(x,y,-3.13),grapeFrameGroup);
+const grapeLeaf=interiorSphere(.15,0x66854f,new THREE.Vector3(1.84,2.52,-3.13),grapeFrameGroup); grapeLeaf.scale.set(1.35,.55,.32); grapeLeaf.rotation.z=.55;
+
+const sunMirrorGroup=createWallDecorGroup('sun-mirror');
+const mirrorRing=interiorMesh(new THREE.TorusGeometry(.39,.07,10,28),0xe8a84c,new THREE.Vector3(2.73,2.35,-3.20),sunMirrorGroup); mirrorRing.rotation.z=.08;
+const mirrorFace=interiorCylinder(.33,.33,.045,0xaed5d4,new THREE.Vector3(2.73,2.35,-3.24),sunMirrorGroup,28); mirrorFace.rotation.x=Math.PI/2;
+
+const tinyShelfGroup=createWallDecorGroup('tiny-shelf');
+interiorBox(1.10,.12,.34,palette.wood,new THREE.Vector3(1.70,1.55,-3.16),tinyShelfGroup);
+interiorBox(.10,.42,.10,palette.wood,new THREE.Vector3(1.25,1.77,-3.27),tinyShelfGroup);
+interiorBox(.10,.42,.10,palette.wood,new THREE.Vector3(2.15,1.77,-3.27),tinyShelfGroup);
+interiorCylinder(.12,.15,.20,palette.pot,new THREE.Vector3(1.50,1.72,-3.04),tinyShelfGroup,14);
+const shelfLeaf=interiorSphere(.16,0x668f58,new THREE.Vector3(1.50,1.94,-3.04),tinyShelfGroup); shelfLeaf.scale.set(.75,1.15,.55);
+interiorBox(.25,.34,.20,0x6f9f97,new THREE.Vector3(1.90,1.77,-3.05),tinyShelfGroup);
+
+const warmGarlandGroup=createWallDecorGroup('warm-garland');
+const garlandWire=interiorMesh(new THREE.TorusGeometry(.90,.025,8,34,Math.PI),palette.dark,new THREE.Vector3(1.72,3.06,-3.18),warmGarlandGroup); garlandWire.rotation.z=Math.PI;
+for(const [x,y] of [[.83,3.06],[1.18,2.85],[1.72,2.74],[2.26,2.85],[2.61,3.06]]){
+  interiorCylinder(.018,.018,.17,palette.dark,new THREE.Vector3(x,y-.07,-3.15),warmGarlandGroup,8);
+  interiorSphere(.07,0xffe58a,new THREE.Vector3(x,y-.18,-3.14),warmGarlandGroup);
+}
+
+let activeInteriorWallTexture=null;
+let activeInteriorFloorTexture=null;
+function interiorPatternTexture(option,kind){
+  const canvas=document.createElement('canvas'); canvas.width=128; canvas.height=128;
+  const context=canvas.getContext('2d');
+  context.fillStyle=option.base; context.fillRect(0,0,128,128);
+  context.fillStyle=option.accent; context.strokeStyle=option.accent; context.lineWidth=3;
+  if(option.pattern==='stripe') for(let x=0;x<128;x+=32) context.fillRect(x,0,10,128);
+  if(option.pattern==='dot') for(let y=16;y<128;y+=32) for(let x=16;x<128;x+=32){ context.beginPath(); context.arc(x,y,5,0,Math.PI*2); context.fill(); }
+  if(option.pattern==='bloom') for(let y=22;y<128;y+=46) for(let x=22;x<128;x+=46){ for(let angle=0;angle<Math.PI*2;angle+=Math.PI/2){ context.beginPath(); context.arc(x+Math.cos(angle)*6,y+Math.sin(angle)*6,5,0,Math.PI*2); context.fill(); } context.fillStyle='#f1bf5d'; context.beginPath(); context.arc(x,y,3,0,Math.PI*2); context.fill(); context.fillStyle=option.accent; }
+  if(option.pattern==='wood') for(let x=0;x<128;x+=28){ context.globalAlpha=.52; context.fillRect(x,0,3,128); context.globalAlpha=1; }
+  if(option.pattern==='check') for(let y=0;y<128;y+=32) for(let x=0;x<128;x+=32) if((x+y)/32%2===0) context.fillRect(x,y,32,32);
+  if(option.pattern==='tile'){ for(let p=0;p<=128;p+=32){ context.beginPath(); context.moveTo(p,0); context.lineTo(p,128); context.stroke(); context.beginPath(); context.moveTo(0,p); context.lineTo(128,p); context.stroke(); } }
+  const texture=new THREE.CanvasTexture(canvas); texture.wrapS=THREE.RepeatWrapping; texture.wrapT=THREE.RepeatWrapping; texture.repeat.set(kind==='wall'?3:5,kind==='wall'?3:5); texture.colorSpace=THREE.SRGBColorSpace; texture.anisotropy=4; return texture;
+}
+function applyInteriorStyle(){
+  const style=activeInteriorStyle();
+  const wallpaper=INTERIOR_WALLPAPERS.find(option=>option.id===style.wallpaper)||INTERIOR_WALLPAPERS[0];
+  const floor=INTERIOR_FLOORS.find(option=>option.id===style.floor)||INTERIOR_FLOORS[0];
+  activeInteriorWallTexture?.dispose(); activeInteriorFloorTexture?.dispose();
+  activeInteriorWallTexture=interiorPatternTexture(wallpaper,'wall');
+  activeInteriorFloorTexture=interiorPatternTexture(floor,'floor');
+  interiorWallSurfaceMeshes.forEach(surface=>{ surface.material.color.set(0xffffff); surface.material.map=activeInteriorWallTexture; surface.material.needsUpdate=true; });
+  interiorFloorSurface.material.color.set(0xffffff); interiorFloorSurface.material.map=activeInteriorFloorTexture; interiorFloorSurface.material.needsUpdate=true;
+  interiorFloorBase.material.color.set(floor.accent);
+  interiorFloorSeams.forEach(seam=>{ seam.visible=floor.pattern==='wood'; seam.material.color.set(floor.accent); });
+  Object.entries(interiorWallDecorObjects).forEach(([id,group])=>{ group.visible=Boolean(style.wallDecor?.[id]); });
+}
+applyInteriorStyle();
 const pendantGroup=new THREE.Group(); interiorWorld.add(pendantGroup);
 interiorCylinder(.025,.025,1.05,palette.dark,new THREE.Vector3(0,3.25,0),pendantGroup,12);
 const pendantShade=interiorMesh(new THREE.ConeGeometry(.42,.42,18,1,true),0xf1a543,new THREE.Vector3(0,2.62,0),pendantGroup); pendantShade.rotation.x=Math.PI;
@@ -1572,6 +1666,8 @@ function chooseMilestoneReward(choice){
 }
 function interiorDayCount(){ return adminPreviewActive?Math.max(...INTERIOR_ITEMS.map(item=>item.unlockDays),...INTERIOR_ROOMS.map(room=>room.unlockDays),INTERIOR_UNLOCK_DAYS):recordedDayCount(); }
 function activeInteriorLayout(){ return adminPreviewActive?adminInteriorLayout:interiorLayout; }
+function activeInteriorStyle(){ return adminPreviewActive?adminInteriorStyle:interiorStyle; }
+function saveInteriorStyle(){ if(!adminPreviewActive) persistLocal(INTERIOR_STYLE_KEY,JSON.stringify(interiorStyle)); }
 function isInteriorUnlocked(){ return adminPreviewActive||recordedDayCount()>=INTERIOR_UNLOCK_DAYS; }
 function interiorRoomById(roomId){ return INTERIOR_ROOMS.find(room=>room.id===roomId)||INTERIOR_ROOMS[0]; }
 function isInteriorRoomUnlocked(room){ return interiorDayCount()>=room.unlockDays; }
@@ -1597,8 +1693,10 @@ function updateInteriorRoomPanel(){
   }
   renderInteriorActivities();
   interiorRoomAction.dataset.room=room.id;
-  interiorInventoryTitle.textContent=`${room.label} 아이템`;
-  interiorInventoryHelp.textContent=`${room.label}에서 사용할 아이템을 골라, 표시된 공간 안에 놓아보세요.`;
+  if(activeInteriorInventoryCategory==='items'){
+    interiorInventoryTitle.textContent=`${room.label} 아이템`;
+    interiorInventoryHelp.textContent=`${room.label}에서 사용할 아이템을 골라, 표시된 공간 안에 놓아보세요.`;
+  }
   const next=INTERIOR_ROOMS.find(candidate=>!isInteriorRoomUnlocked(candidate));
   futureRoomCard.hidden=!next;
   if(next){
@@ -1740,11 +1838,51 @@ function renderInteriorItems(){
   interiorItems.innerHTML='';
   syncInterior3DItems();
 }
+function interiorStyleSwatch(option,kind){
+  return `<span class="interior-style-swatch ${kind} pattern-${option.pattern}" style="--style-base:${option.base};--style-accent:${option.accent}"><i></i></span>`;
+}
 function renderInteriorInventory(){
   const days=interiorDayCount();
   const layout=activeInteriorLayout();
+  const style=activeInteriorStyle();
+  interiorStyleTabs.querySelectorAll('[data-interior-category]').forEach(button=>{
+    const active=button.dataset.interiorCategory===activeInteriorInventoryCategory;
+    button.classList.toggle('active',active); button.setAttribute('aria-pressed',String(active));
+  });
+  if(activeInteriorInventoryCategory==='wallpaper'||activeInteriorInventoryCategory==='floor'){
+    const isWallpaper=activeInteriorInventoryCategory==='wallpaper';
+    const options=isWallpaper?INTERIOR_WALLPAPERS:INTERIOR_FLOORS;
+    const selectedId=isWallpaper?style.wallpaper:style.floor;
+    const available=options.filter(option=>days>=option.unlockDays);
+    interiorInventoryTitle.textContent=isWallpaper?'벽지 고르기':'바닥 고르기';
+    interiorInventoryHelp.textContent=isWallpaper?'고른 벽지가 집 안의 세 벽에 바로 적용돼요.':'고른 바닥을 방 전체에 미리 보고 적용할 수 있어요.';
+    interiorItemCount.textContent=adminPreviewActive?`${available.length}개 체험`:`${available.length}개 보유`;
+    interiorInventoryList.innerHTML=options.map(option=>{
+      const unlocked=days>=option.unlockDays;
+      const selected=unlocked&&option.id===selectedId;
+      const status=unlocked?(selected?'현재 적용 중':'눌러서 바로 적용'):`${option.unlockDays}번째 기록 후 공개`;
+      return `<button class="inventory-item-card style-choice-card${unlocked?' unlocked':' locked'}${selected?' placed':''}" type="button" data-interior-style-type="${isWallpaper?'wallpaper':'floor'}" data-interior-style-id="${option.id}" ${unlocked?'':'aria-disabled="true"'}><span class="inventory-item-preview">${unlocked?interiorStyleSwatch(option,isWallpaper?'wallpaper':'floor'):'<i class="inventory-question">?</i>'}</span><span><b>${unlocked?option.label:'???'}</b><small>${status}</small></span></button>`;
+    }).join('');
+    return;
+  }
+  if(activeInteriorInventoryCategory==='wall-decor'){
+    const available=INTERIOR_WALL_DECORS.filter(option=>days>=option.unlockDays);
+    interiorInventoryTitle.textContent='벽 장식 고르기';
+    interiorInventoryHelp.textContent='그림과 거울, 선반을 눌러 실제 3D 벽에 달거나 보관해요.';
+    interiorItemCount.textContent=adminPreviewActive?`${available.length}개 체험`:`${available.length}개 보유`;
+    interiorInventoryList.innerHTML=INTERIOR_WALL_DECORS.map(option=>{
+      const unlocked=days>=option.unlockDays;
+      const placed=unlocked&&Boolean(style.wallDecor?.[option.id]);
+      const status=unlocked?(placed?'벽에 장식됨 · 눌러 보관':'획득 완료 · 눌러 벽에 달기'):`${option.unlockDays}번째 기록 후 공개`;
+      return `<button class="inventory-item-card wall-decor-card${unlocked?' unlocked':' locked'}${placed?' placed':''}" type="button" data-wall-decor-id="${option.id}" ${unlocked?'':'aria-disabled="true"'}><span class="inventory-item-preview">${unlocked?`<span class="wall-decor-preview preview-${option.id}"><i>${option.icon}</i></span>`:'<i class="inventory-question">?</i>'}</span><span><b>${unlocked?option.label:'???'}</b><small>${status}</small></span></button>`;
+    }).join('');
+    return;
+  }
   const roomItems=INTERIOR_ITEMS.filter(item=>item.room===activeInteriorRoomId);
   const unlocked=roomItems.filter(item=>days>=item.unlockDays);
+  const room=interiorRoomById(activeInteriorRoomId);
+  interiorInventoryTitle.textContent=`${room.label} 아이템`;
+  interiorInventoryHelp.textContent=`${room.label}에서 사용할 아이템을 골라, 표시된 공간 안에 놓아보세요.`;
   interiorItemCount.textContent=adminPreviewActive?`${unlocked.length}개 체험`:`${unlocked.length}개 보유`;
   interiorInventoryList.innerHTML=roomItems.map(item=>{
     const available=days>=item.unlockDays;
@@ -1757,6 +1895,7 @@ function openInterior(){
   if(!isInteriorUnlocked()) return;
   clearTimeout(interiorOpenTimer);
   interiorHouseName.textContent=`${houseName}네 집`;
+  applyInteriorStyle();
   renderInteriorItems();
   renderInteriorInventory();
   interiorView.classList.add('open');
@@ -1788,6 +1927,7 @@ function createAdminInteriorLayout(){
     const saved=interiorLayout[item.id]||item;
     return [item.id,{x:saved.x,y:saved.y,placed:true}];
   }));
+  adminInteriorStyle=JSON.parse(JSON.stringify(interiorStyle));
 }
 function enableAdminPreview(){
   if(adminPreviewActive||!adminPreviewAllowed) return;
@@ -1839,6 +1979,7 @@ function stopAdminPreview(){
   closeInterior();
   adminPreviewActive=false;
   adminInteriorLayout={};
+  adminInteriorStyle={};
   adminPreviewRewards={rareItem:'',exteriorStyle:''};
   if(adminDecorLayoutSnapshot) decorLayout=adminDecorLayoutSnapshot;
   adminDecorLayoutSnapshot=null;
@@ -1849,6 +1990,7 @@ function stopAdminPreview(){
   document.body.classList.remove('admin-preview-active');
   closeAdminPreview();
   applyExteriorReward();
+  applyInteriorStyle();
   rebuildDecorations();
   adminFutureDecorCounter=0;
   renderDecorOptions();
@@ -2244,7 +2386,37 @@ interiorActivityButtons.addEventListener('click',event=>{
   const button=event.target.closest('[data-interior-activity]');
   if(button) runInteriorActivity(button.dataset.interiorActivity);
 });
+interiorStyleTabs.addEventListener('click',event=>{
+  const button=event.target.closest('[data-interior-category]');
+  if(!button) return;
+  activeInteriorInventoryCategory=button.dataset.interiorCategory;
+  renderInteriorInventory();
+});
 interiorInventoryList.addEventListener('click',event=>{
+  const styleButton=event.target.closest('[data-interior-style-id]');
+  if(styleButton){
+    const type=styleButton.dataset.interiorStyleType;
+    const options=type==='wallpaper'?INTERIOR_WALLPAPERS:INTERIOR_FLOORS;
+    const option=options.find(candidate=>candidate.id===styleButton.dataset.interiorStyleId);
+    if(!option) return;
+    if(interiorDayCount()<option.unlockDays){ showCaptureNotice('아직 비공개인 꾸미기예요',`${option.unlockDays}번째 기록을 남기면 이름과 모습이 공개돼요.`); return; }
+    if(isSharedHome){ showCaptureNotice('공유받은 집이에요','벽지와 바닥은 집의 원래 주인만 바꿀 수 있어요.'); return; }
+    const style=activeInteriorStyle(); style[type]=option.id;
+    saveInteriorStyle(); applyInteriorStyle(); renderInteriorInventory();
+    showCaptureNotice(`${option.label} 적용 완료`,`${type==='wallpaper'?'벽지':'바닥'}가 따뜻한 새 모습으로 바뀌었어요.`);
+    return;
+  }
+  const wallDecorButton=event.target.closest('[data-wall-decor-id]');
+  if(wallDecorButton){
+    const option=INTERIOR_WALL_DECORS.find(candidate=>candidate.id===wallDecorButton.dataset.wallDecorId);
+    if(!option) return;
+    if(interiorDayCount()<option.unlockDays){ showCaptureNotice('아직 비공개인 벽 장식이에요',`${option.unlockDays}번째 기록을 남기면 이름과 모습이 공개돼요.`); return; }
+    if(isSharedHome){ showCaptureNotice('공유받은 집이에요','벽 장식은 집의 원래 주인만 바꿀 수 있어요.'); return; }
+    const style=activeInteriorStyle(); style.wallDecor={...(style.wallDecor||{}),[option.id]:!style.wallDecor?.[option.id]};
+    saveInteriorStyle(); applyInteriorStyle(); renderInteriorInventory();
+    showCaptureNotice(`${option.label}${style.wallDecor[option.id]?'을 벽에 달았어요':'을 보관했어요'}`,'벽 장식도 실제 3D 공간의 일부로 저장돼요.');
+    return;
+  }
   const button=event.target.closest('[data-inventory-item]');
   if(!button) return;
   const item=INTERIOR_ITEMS.find(candidate=>candidate.id===button.dataset.inventoryItem);

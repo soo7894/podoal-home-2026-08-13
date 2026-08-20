@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=10" />
+    <link rel="stylesheet" href="./styles.css?v=11" />
   </head>
   <body>
     <main class="app-shell">
@@ -37,7 +37,12 @@
           <p class="eyebrow"><span></span> AUGUST 07, 2026</p>
           <h1>오늘의 작은<br /><em>잘함</em>을 집에 놓아요.</h1>
           <p class="intro">잘 해낸 하루는 작아도 충분히 반짝여요.<br />하나의 장식으로 오늘을 기억해 보세요.</p>
-          <button class="primary-button" id="open-entry"><span>+</span> 오늘의 잘한 일 기록하기</button>
+          <div class="hero-actions">
+            <button class="primary-button" id="open-entry"><span>+</span> 오늘의 잘한 일 기록하기</button>
+            <button class="hero-guide-button" id="open-guide" type="button" aria-label="조작법 열기" data-tooltip="조작법">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.1a2.45 2.45 0 0 1 4.63 1.12c0 1.72-1.94 2.07-2.3 3.35"/><path d="M12 16.75h.01"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="scene-wrap" aria-label="3D 장난감 집">
@@ -58,7 +63,6 @@
           <button class="scene-capture-button fixed-share-button" id="share-home-link" type="button" aria-label="집 공유하기" data-tooltip="집 공유하기">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.2"/><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="19" r="2.2"/><path d="m8 11 7.9-4.8M8 13l7.9 4.8"/></svg>
           </button>
-          <button class="scene-help-button" id="open-guide" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.1a2.45 2.45 0 0 1 4.63 1.12c0 1.72-1.94 2.07-2.3 3.35"/><path d="M12 16.75h.01"/></svg><span>조작법</span></button>
           <button class="door-mission-badge" id="door-mission-badge" type="button" aria-label="실내 공개 미션 확인">
             <span class="door-mission-icon" aria-hidden="true">🔒</span>
             <span><b>문 열기</b><small id="door-mission-copy">3일 기록 후 공개</small></span>

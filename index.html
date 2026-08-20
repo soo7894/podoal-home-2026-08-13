@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=18" />
+    <link rel="stylesheet" href="./styles.css?v=19" />
   </head>
   <body>
     <main class="app-shell">
@@ -27,7 +27,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 10.2a5.2 5.2 0 0 1 10.4 0c0 6 2.2 6.1 2.2 7.2H4.6c0-1.1 2.2-1.2 2.2-7.2Z"/><path d="M9.7 19.1a2.5 2.5 0 0 0 4.6 0"/></svg>
             <span class="reminder-status-dot" id="reminder-status-dot" aria-hidden="true"></span>
           </button>
-          <button class="round-button sound-button" id="sound-button" aria-label="소리 켜기">♪</button>
+          <button class="round-button sound-button" id="sound-button" type="button" aria-label="소리 끄기" aria-pressed="false"><span aria-hidden="true">♪</span><i aria-hidden="true"></i></button>
           <button class="round-button menu-button" aria-label="메뉴 열기">☰</button>
         </div>
       </header>
@@ -289,6 +289,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=104"></script>
+    <script type="module" src="./main.js?v=105"></script>
   </body>
 </html>

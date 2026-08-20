@@ -1778,7 +1778,12 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
   showCaptureNotice(shouldSetStartDate?'오늘부터 시작했어요!':'오늘의 장식이 놓였어요!',shouldSetStartDate?'첫 기록 날짜가 시작일로 자동 설정되고, 장식도 집에 놓였어요.':'집이 조금 더 따뜻해졌습니다.');
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
-document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });
+document.querySelector('#sound-button').addEventListener('click',event=>{
+  const button=event.currentTarget;
+  const muted=button.classList.toggle('muted');
+  button.setAttribute('aria-pressed',String(muted));
+  button.setAttribute('aria-label',muted?'소리 켜기':'소리 끄기');
+});
 
 doorMissionBadge.addEventListener('click',requestInteriorOpen);
 document.querySelector('#close-interior').addEventListener('click',closeInterior);

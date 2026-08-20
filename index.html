@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=8" />
+    <link rel="stylesheet" href="./styles.css?v=9" />
   </head>
   <body>
     <main class="app-shell">
@@ -23,6 +23,10 @@
     <button class="streak needs-setup" id="streak-button" type="button" aria-label="따뜻하게 살기 시작한 날 정하기">
       <b id="streak-number">시작일</b><span id="streak-copy">을 정해 주세요</span><i aria-hidden="true">⌄</i>
     </button>
+          <button class="round-button reminder-button" id="open-reminders" type="button" aria-label="기록 알림 설정" title="기록 알림 설정">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 10.2a5.2 5.2 0 0 1 10.4 0c0 6 2.2 6.1 2.2 7.2H4.6c0-1.1 2.2-1.2 2.2-7.2Z"/><path d="M9.7 19.1a2.5 2.5 0 0 0 4.6 0"/></svg>
+            <span class="reminder-status-dot" id="reminder-status-dot" aria-hidden="true"></span>
+          </button>
           <button class="round-button sound-button" id="sound-button" aria-label="소리 켜기">♪</button>
           <button class="round-button menu-button" aria-label="메뉴 열기">☰</button>
         </div>
@@ -146,6 +150,38 @@
       </section>
     </div>
 
+    <div class="entry-backdrop reminder-backdrop" id="reminder-backdrop" aria-hidden="true">
+      <section class="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-title">
+        <button class="close-modal" id="close-reminders" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> GENTLE REMINDER</p>
+        <h2 id="reminder-title">나를 칭찬할 시간을<br /><em>잊지 않도록</em></h2>
+        <p class="reminder-description">원하는 시간만 골라 주세요. 여러 개를 선택해도 되고, 시간은 자유롭게 바꿀 수 있어요.</p>
+        <div class="reminder-list" id="reminder-list">
+          <div class="reminder-row">
+            <label class="reminder-toggle"><input type="checkbox" data-reminder-enabled="morning" /><span class="reminder-check" aria-hidden="true">✓</span><span class="reminder-copy"><b>아침</b><small>오늘을 다정하게 시작해요</small></span></label>
+            <input class="reminder-time" type="time" value="08:00" data-reminder-time="morning" aria-label="아침 알림 시간" />
+          </div>
+          <div class="reminder-row">
+            <label class="reminder-toggle"><input type="checkbox" data-reminder-enabled="lunch" /><span class="reminder-check" aria-hidden="true">✓</span><span class="reminder-copy"><b>점심</b><small>오전의 작은 잘함을 떠올려요</small></span></label>
+            <input class="reminder-time" type="time" value="12:30" data-reminder-time="lunch" aria-label="점심 알림 시간" />
+          </div>
+          <div class="reminder-row">
+            <label class="reminder-toggle"><input type="checkbox" data-reminder-enabled="evening" /><span class="reminder-check" aria-hidden="true">✓</span><span class="reminder-copy"><b>저녁</b><small>오늘의 나에게 박수를 보내요</small></span></label>
+            <input class="reminder-time" type="time" value="19:00" data-reminder-time="evening" aria-label="저녁 알림 시간" />
+          </div>
+          <div class="reminder-row">
+            <label class="reminder-toggle"><input type="checkbox" data-reminder-enabled="bedtime" /><span class="reminder-check" aria-hidden="true">✓</span><span class="reminder-copy"><b>자기 전</b><small>하루를 따뜻하게 마무리해요</small></span></label>
+            <input class="reminder-time" type="time" value="22:30" data-reminder-time="bedtime" aria-label="자기 전 알림 시간" />
+          </div>
+        </div>
+        <p class="reminder-note"><span aria-hidden="true">●</span> 캘린더에 추가하면 사이트를 닫아도 휴대폰이 알려줘요.</p>
+        <div class="reminder-actions">
+          <button class="primary-button reminder-save" id="save-reminders" type="button">설정 저장하기 <span>→</span></button>
+          <button class="calendar-button" id="download-reminders" type="button">캘린더에 반복 알림 추가</button>
+        </div>
+      </section>
+    </div>
+
     <div class="entry-backdrop manager-backdrop" id="manager-backdrop" aria-hidden="true">
       <section class="manager-modal" role="dialog" aria-modal="true" aria-labelledby="manager-title">
         <button class="close-modal" id="close-manager" aria-label="닫기">×</button>
@@ -238,6 +274,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=97"></script>
+    <script type="module" src="./main.js?v=98"></script>
   </body>
 </html>

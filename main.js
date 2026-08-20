@@ -20,6 +20,11 @@ const streakTitle = document.querySelector('#streak-title');
 const streakDescription = document.querySelector('#streak-description');
 const startDateNote = document.querySelector('#start-date-note');
 const saveStartDate = document.querySelector('#save-start-date');
+const openRemindersButton = document.querySelector('#open-reminders');
+const reminderBackdrop = document.querySelector('#reminder-backdrop');
+const reminderList = document.querySelector('#reminder-list');
+const saveRemindersButton = document.querySelector('#save-reminders');
+const downloadRemindersButton = document.querySelector('#download-reminders');
 const decorTooltip = document.querySelector('#decor-tooltip');
 const houseNameEditor = document.querySelector('#house-name-editor');
 const houseNameButton = document.querySelector('#house-name-button');
@@ -54,12 +59,20 @@ const STREAK_START_KEY = 'my-little-day-streak-start-v1';
 const DECOR_LAYOUT_KEY = 'my-little-day-decor-layout-v1';
 const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const INTERIOR_LAYOUT_KEY = 'my-little-day-interior-layout-v1';
+const REMINDER_STORAGE_KEY = 'my-little-day-reminders-v1';
+const REMINDER_LAST_FIRED_KEY = 'my-little-day-reminder-last-fired-v1';
 const INTERIOR_UNLOCK_DAYS = 3;
 const SHARE_HASH_PREFIX = '#my-little-home=';
 const SHARE_ID_PREFIX = '#share=';
 const SHARE_LINK_CACHE_KEY = 'my-little-day-last-share-link-v1';
 const SHARE_ENDPOINT = 'https://alpxeyqkqlacbbluwazq.supabase.co/functions/v1/home-share';
 const SHARE_PUBLISHABLE_KEY = 'sb_publishable_kx3FsYOCmIZJTVcIDr1B0g_FWZr8BT_';
+const REMINDER_PRESETS = {
+  morning:{label:'아침',time:'08:00'},
+  lunch:{label:'점심',time:'12:30'},
+  evening:{label:'저녁',time:'19:00'},
+  bedtime:{label:'자기 전',time:'22:30'}
+};
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
 const DECOR_OPTIONS = [
@@ -245,6 +258,15 @@ let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREA
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = sharedHome?.houseName ?? (localStorage.getItem(HOUSE_NAME_KEY) || '우리');
 let interiorLayout = isSharedHome ? {} : JSON.parse(localStorage.getItem(INTERIOR_LAYOUT_KEY) || '{}');
+function loadReminderSettings(){
+  let saved={};
+  try { saved=JSON.parse(localStorage.getItem(REMINDER_STORAGE_KEY)||'{}')||{}; } catch {}
+  return Object.fromEntries(Object.entries(REMINDER_PRESETS).map(([id,preset])=>[id,{
+    enabled:Boolean(saved[id]?.enabled),
+    time:/^([01]\d|2[0-3]):[0-5]\d$/.test(saved[id]?.time||'')?saved[id].time:preset.time
+  }]));
+}
+let reminderSettings=loadReminderSettings();
 if(!isSharedHome&&!streakStartDate&&memories.length){
   const firstRecordTime=Math.min(...memories.map(memory=>Date.parse(memory.date)).filter(Number.isFinite));
   if(Number.isFinite(firstRecordTime)){
@@ -1219,6 +1241,127 @@ saveStartDate.addEventListener('click',()=>{
   closeStreakModal();
 });
 updateStreak();
+
+function enabledReminders(){
+  return Object.entries(reminderSettings).filter(([,setting])=>setting.enabled);
+}
+function updateReminderButton(){
+  const count=enabledReminders().length;
+  openRemindersButton.classList.toggle('active',count>0);
+  openRemindersButton.setAttribute('aria-label',count?`기록 알림 ${count}개 설정됨. 알림 설정 열기`:'기록 알림 설정');
+  openRemindersButton.title=count?`기록 알림 ${count}개 설정됨`:'기록 알림 설정';
+}
+function fillReminderForm(){
+  Object.entries(reminderSettings).forEach(([id,setting])=>{
+    const enabled=reminderList.querySelector(`[data-reminder-enabled="${id}"]`);
+    const time=reminderList.querySelector(`[data-reminder-time="${id}"]`);
+    if(enabled) enabled.checked=setting.enabled;
+    if(time) time.value=setting.time;
+  });
+  updateCalendarButton();
+}
+function collectReminderForm(){
+  return Object.fromEntries(Object.keys(REMINDER_PRESETS).map(id=>{
+    const enabled=reminderList.querySelector(`[data-reminder-enabled="${id}"]`);
+    const time=reminderList.querySelector(`[data-reminder-time="${id}"]`);
+    return [id,{enabled:Boolean(enabled?.checked),time:time?.value||REMINDER_PRESETS[id].time}];
+  }));
+}
+function selectedReminderCountFromForm(){
+  return reminderList.querySelectorAll('[data-reminder-enabled]:checked').length;
+}
+function updateCalendarButton(){
+  const count=selectedReminderCountFromForm();
+  downloadRemindersButton.disabled=count===0;
+  downloadRemindersButton.textContent=count?`선택한 ${count}개를 캘린더에 추가`:'캘린더에 반복 알림 추가';
+}
+function openReminderModal(){
+  fillReminderForm();
+  reminderBackdrop.classList.add('open');
+  reminderBackdrop.setAttribute('aria-hidden','false');
+}
+function closeReminderModal(){
+  reminderBackdrop.classList.remove('open');
+  reminderBackdrop.setAttribute('aria-hidden','true');
+}
+function saveReminderSettings({close=true,notify=true}={}){
+  reminderSettings=collectReminderForm();
+  localStorage.setItem(REMINDER_STORAGE_KEY,JSON.stringify(reminderSettings));
+  updateReminderButton();
+  if(close) closeReminderModal();
+  if(notify){
+    const count=enabledReminders().length;
+    showCaptureNotice(count?'알림 시간을 기억해 둘게요':'알림을 모두 쉬게 했어요',count?`${count}개의 시간에 사이트 안에서도 다정하게 알려드릴게요.`:'언제든 종 모양을 눌러 다시 켤 수 있어요.');
+  }
+}
+function padCalendarNumber(value){ return String(value).padStart(2,'0'); }
+function calendarLocalStamp(date){
+  return `${date.getFullYear()}${padCalendarNumber(date.getMonth()+1)}${padCalendarNumber(date.getDate())}T${padCalendarNumber(date.getHours())}${padCalendarNumber(date.getMinutes())}00`;
+}
+function calendarUtcStamp(date){
+  return `${date.getUTCFullYear()}${padCalendarNumber(date.getUTCMonth()+1)}${padCalendarNumber(date.getUTCDate())}T${padCalendarNumber(date.getUTCHours())}${padCalendarNumber(date.getUTCMinutes())}${padCalendarNumber(date.getUTCSeconds())}Z`;
+}
+function calendarEscape(value){ return value.replace(/\\/g,'\\\\').replace(/,/g,'\\,').replace(/;/g,'\\;').replace(/\n/g,'\\n'); }
+function buildReminderCalendar(){
+  const now=new Date();
+  const stamp=calendarUtcStamp(now);
+  const events=enabledReminders().map(([id,setting])=>{
+    const [hour,minute]=setting.time.split(':').map(Number);
+    const start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hour,minute,0,0);
+    if(start<now) start.setDate(start.getDate()+1);
+    const label=REMINDER_PRESETS[id].label;
+    return [
+      'BEGIN:VEVENT',
+      `UID:podoal-${id}-${Date.now()}@today-home`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART:${calendarLocalStamp(start)}`,
+      'RRULE:FREQ=DAILY',
+      `SUMMARY:${calendarEscape(`오늘의 잘한 일 기록하기 · ${label}`)}`,
+      'DESCRIPTION:오늘 잘한 일을 한 줄 남기고 나의 작은 집을 꾸며보세요.',
+      'BEGIN:VALARM','TRIGGER:PT0M','ACTION:DISPLAY','DESCRIPTION:오늘의 잘한 일을 기록할 시간이에요.','END:VALARM',
+      'END:VEVENT'
+    ].join('\r\n');
+  });
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Today Home//Gentle Reminder//KO','CALSCALE:GREGORIAN','METHOD:PUBLISH',...events,'END:VCALENDAR',''].join('\r\n');
+}
+function downloadReminderCalendar(){
+  reminderSettings=collectReminderForm();
+  if(!enabledReminders().length){ updateCalendarButton(); return; }
+  localStorage.setItem(REMINDER_STORAGE_KEY,JSON.stringify(reminderSettings));
+  updateReminderButton();
+  const blob=new Blob([buildReminderCalendar()],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download='오늘의-집-기록-알림.ics';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showCaptureNotice('캘린더 알림 파일을 만들었어요','다운로드한 파일을 열고 휴대폰 캘린더에 추가해 주세요.');
+}
+function checkDueReminder(){
+  if(document.visibilityState==='hidden'||!enabledReminders().length) return;
+  const now=new Date();
+  const currentTime=`${padCalendarNumber(now.getHours())}:${padCalendarNumber(now.getMinutes())}`;
+  const due=enabledReminders().find(([,setting])=>setting.time===currentTime);
+  if(!due) return;
+  const fireKey=`${localDateString(now)}-${due[0]}-${currentTime}`;
+  if(localStorage.getItem(REMINDER_LAST_FIRED_KEY)===fireKey) return;
+  localStorage.setItem(REMINDER_LAST_FIRED_KEY,fireKey);
+  showCaptureNotice('오늘의 나를 칭찬할 시간이에요',`${REMINDER_PRESETS[due[0]].label}의 작은 잘함을 한 줄 남겨볼까요?`);
+}
+openRemindersButton.addEventListener('click',openReminderModal);
+document.querySelector('#close-reminders').addEventListener('click',closeReminderModal);
+reminderBackdrop.addEventListener('click',event=>{ if(event.target===reminderBackdrop) closeReminderModal(); });
+reminderList.addEventListener('change',updateCalendarButton);
+saveRemindersButton.addEventListener('click',()=>saveReminderSettings());
+downloadRemindersButton.addEventListener('click',downloadReminderCalendar);
+document.addEventListener('visibilitychange',checkDueReminder);
+document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&reminderBackdrop.classList.contains('open')) closeReminderModal(); });
+setInterval(checkDueReminder,15000);
+updateReminderButton();
+checkDueReminder();
 
 function saveHouseName(){
   if(isSharedHome) return;

@@ -8,6 +8,12 @@ const input = document.querySelector('#memory-input');
 const recentList = document.querySelector('#recent-list');
 const countEl = document.querySelector('#record-count');
 const progressFill = document.querySelector('#progress-fill');
+const rewardTotalDays = document.querySelector('#reward-total-days');
+const rewardMilestones = document.querySelector('#reward-milestones');
+const rewardBackdrop = document.querySelector('#reward-backdrop');
+const rewardModalTitle = document.querySelector('#reward-modal-title');
+const rewardModalDescription = document.querySelector('#reward-modal-description');
+const rewardChoiceList = document.querySelector('#reward-choice-list');
 const todayPreview = document.querySelector('#today-preview');
 const previewCount = document.querySelector('#preview-count');
 const toast = document.querySelector('#toast');
@@ -61,6 +67,8 @@ const GUIDE_SEEN_KEY = 'my-little-day-guide-seen-v1';
 const INTERIOR_LAYOUT_KEY = 'my-little-day-interior-layout-v1';
 const REMINDER_STORAGE_KEY = 'my-little-day-reminders-v1';
 const REMINDER_LAST_FIRED_KEY = 'my-little-day-reminder-last-fired-v1';
+const MILESTONE_REWARDS_KEY = 'my-little-day-milestone-rewards-v1';
+const MONTHLY_TARGET_DAYS = 15;
 const INTERIOR_UNLOCK_DAYS = 3;
 const SHARE_HASH_PREFIX = '#my-little-home=';
 const SHARE_ID_PREFIX = '#share=';
@@ -73,8 +81,28 @@ const REMINDER_PRESETS = {
   evening:{label:'저녁',time:'19:00'},
   bedtime:{label:'자기 전',time:'22:30'}
 };
+const REWARD_MILESTONES = [
+  {days:1,title:'첫 집 꾸미기 아이템',description:'기록을 남기자마자 장식 하나를 받아요.'},
+  {days:3,title:'집 문과 실내 공개',description:'문을 열고 따뜻한 원룸을 직접 꾸며요.'},
+  {days:7,title:'희귀 아이템 선택',description:'특별한 장식 3개 중 하나를 골라요.',action:'rare'},
+  {days:14,title:'외관 변경권',description:'지붕·창문·현관의 분위기를 바꿔요.',action:'exterior'},
+  {days:30,title:'방 또는 집 업그레이드',description:'방을 넓히거나 집의 형태를 발전시켜요.'},
+  {days:60,title:'핵심 장기 목표',description:'2층 증축 또는 특별한 새 집이 열려요.',longGoal:true},
+  {days:90,title:'계절별 특별 공간',description:'계절 별장 또는 특별 정원을 만나요.'}
+];
+const RARE_REWARD_OPTIONS = [
+  {id:'lantern',label:'별빛 랜턴',description:'저녁 정원을 밝혀주는 조명'},
+  {id:'topiary',label:'하트 토피어리',description:'둥글고 포근한 초록 장식'},
+  {id:'arch',label:'꽃 정원 아치',description:'집으로 이어지는 특별한 입구'}
+];
+const EXTERIOR_REWARD_OPTIONS = [
+  {id:'sunset',label:'살구빛 외관',description:'지금의 따뜻한 색감을 깊게',roof:0xeb7651,door:0x99623e,window:0x93c7d0},
+  {id:'berry',label:'포도빛 외관',description:'차분한 포도와 라일락 색감',roof:0x9b6b88,door:0x70506b,window:0x91bdc6},
+  {id:'forest',label:'숲빛 외관',description:'초록 지붕과 호두색 현관',roof:0x62835c,door:0x75513b,window:0x80b7b2}
+];
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
+let currentRewardAction = null;
 const DECOR_OPTIONS = [
   ['flower','✿','꽃 화분'],['lamp','☀','작은 조명'],['book','▤','책 더미'],['flag','⚑','응원 깃발'],['tree','♟','작은 나무'],['bigtree','♟','큰 나무'],['bench','▰','나무 벤치'],
   ['fountain','⛲','분수'],['birdhouse','⌂','새집'],['mailbox','✉','우편함'],['fence','▥','울타리'],['swing','♧','그네'],['bicycle','◎','자전거'],
@@ -213,6 +241,7 @@ function packSharedHome(){
     m:memories.map(memory=>[memory.text,SHARE_DECOR_TYPES.indexOf(memory.decor),Date.parse(memory.date)||0,memory.flowerColor||0]),
     s:streakStartDate,
     n:houseName,
+    r:[milestoneRewards.rareItem||'',milestoneRewards.exteriorStyle||''],
     d:active,
     w:[Math.round(world.rotation.y*1000),Math.round(camera.position.y*100)]
   };
@@ -235,7 +264,7 @@ function unpackSharedHome(data){
     if(roofLightOn) saved.roofLightOn=true;
     decorLayout[id]=saved;
   });
-  return {memories,streakStartDate:data.s||'',houseName:data.n,decorLayout,view:{rotation:(data.w?.[0]??440)/1000,cameraHeight:(data.w?.[1]??630)/100}};
+  return {memories,streakStartDate:data.s||'',houseName:data.n,decorLayout,milestoneRewards:{rareItem:data.r?.[0]||'',exteriorStyle:data.r?.[1]||''},view:{rotation:(data.w?.[0]??440)/1000,cameraHeight:(data.w?.[1]??630)/100}};
 }
 function encodeSharedHome(data){
   const packed=window.LZString?.compressToEncodedURIComponent(JSON.stringify(data));
@@ -258,6 +287,11 @@ let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREA
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = sharedHome?.houseName ?? (localStorage.getItem(HOUSE_NAME_KEY) || '우리');
 let interiorLayout = isSharedHome ? {} : JSON.parse(localStorage.getItem(INTERIOR_LAYOUT_KEY) || '{}');
+function loadMilestoneRewards(){
+  try { return JSON.parse(localStorage.getItem(MILESTONE_REWARDS_KEY)||'{}')||{}; }
+  catch { return {}; }
+}
+let milestoneRewards=sharedHome?.milestoneRewards??loadMilestoneRewards();
 function loadReminderSettings(){
   let saved={};
   try { saved=JSON.parse(localStorage.getItem(REMINDER_STORAGE_KEY)||'{}')||{}; } catch {}
@@ -346,6 +380,17 @@ const OPEN_DOOR_ANGLE=-Math.PI*.47;
 box(1.5,1.42,.12,palette.blue,new THREE.Vector3(-1.66,2.22,2.09),frontFacade);
 box(1.5,1.42,.12,palette.blue,new THREE.Vector3(1.66,2.22,2.09),frontFacade);
 for (const x of [-1.66,1.66]) { box(.12,1.62,.12,palette.cream,new THREE.Vector3(x,2.22,2.18),frontFacade); box(1.68,.12,.12,palette.cream,new THREE.Vector3(x,2.22,2.18),frontFacade); box(1.82,.15,.15,palette.roof,new THREE.Vector3(x,3.05,2.17),frontFacade); }
+const windowPanels=frontFacade.children.filter(child=>child.material?.color?.getHex()===palette.blue);
+const windowAwnings=frontFacade.children.filter(child=>child.material?.color?.getHex()===palette.roof);
+function applyExteriorReward(){
+  const style=EXTERIOR_REWARD_OPTIONS.find(option=>option.id===milestoneRewards.exteriorStyle);
+  if(!style) return;
+  roof.material.color.setHex(style.roof);
+  doorMesh.material.color.setHex(style.door);
+  windowPanels.forEach(panel=>panel.material.color.setHex(style.window));
+  windowAwnings.forEach(awning=>awning.material.color.setHex(style.roof));
+}
+applyExteriorReward();
 
 // A heart-shaped nameplate, rendered as part of the house facade.
 const nameplateCanvas = document.createElement('canvas');
@@ -710,7 +755,13 @@ if(type==='chime') {
   if(!savedPosition || savedPosition.x!==g.position.x || savedPosition.z!==g.position.z) saveDecorationPosition(g);
   if(animate) { const baseY=g.position.y; g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=baseY+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=baseY; }; requestAnimationFrame(grow); }
 }
-function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i,false,m.text,`memory-${m.date||i}`,m.flowerColor)); }
+function addStoredDecorations(){
+  memories.forEach((m,i)=>addDecoration(m.decor,i,false,m.text,`memory-${m.date||i}`,m.flowerColor));
+  if(milestoneRewards.rareItem){
+    const reward=RARE_REWARD_OPTIONS.find(option=>option.id===milestoneRewards.rareItem);
+    addDecoration(milestoneRewards.rareItem,memories.length+7,false,`7일 보상 · ${reward?.label||'특별한 장식'}`,'milestone-7');
+  }
+}
 addStoredDecorations();
 function settleGroundDecorations(){
   for(let pass=0;pass<5;pass++){
@@ -795,7 +846,7 @@ function getDoorAtEvent(event){
 function toggleDoor(){
   if(!isInteriorUnlocked()){
     const days=recordedDayCount();
-    showCaptureNotice('문은 3일 후에 열려요',`서로 다른 날의 기록이 ${Math.max(INTERIOR_UNLOCK_DAYS-days,0)}일 더 필요해요.`);
+    showCaptureNotice('3일의 기록을 모으면 문이 열려요',`서로 다른 날에 ${Math.max(INTERIOR_UNLOCK_DAYS-days,0)}번 더 기록해 주세요.`);
     updateDoorMissionUI();
     return;
   }
@@ -1003,6 +1054,78 @@ function memoryDayKey(value){
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
 function recordedDayCount(){ return new Set(memories.map(memory=>memoryDayKey(memory.date)).filter(Boolean)).size; }
+function monthlyRecordedDayCount(date=new Date()){
+  const prefix=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-`;
+  return new Set(memories.map(memory=>memoryDayKey(memory.date)).filter(day=>day.startsWith(prefix))).size;
+}
+function milestoneRewardClaimed(action){
+  if(action==='rare') return Boolean(milestoneRewards.rareItem);
+  if(action==='exterior') return Boolean(milestoneRewards.exteriorStyle);
+  return false;
+}
+function renderRewardJourney(){
+  const days=recordedDayCount();
+  const next=REWARD_MILESTONES.find(milestone=>days<milestone.days||(milestone.action&&!milestoneRewardClaimed(milestone.action)));
+  rewardTotalDays.textContent=`누적 ${days}일`;
+  rewardMilestones.innerHTML=REWARD_MILESTONES.map(milestone=>{
+    const reached=days>=milestone.days;
+    const claimed=milestone.action?milestoneRewardClaimed(milestone.action):reached;
+    const current=next?.days===milestone.days;
+    const classes=['reward-milestone',reached&&claimed?'completed':'locked',current?'current':'',milestone.longGoal?'long-goal':''].filter(Boolean).join(' ');
+    let footer=`<span class="reward-status">${reached?'✓ 달성 완료':`${Math.min(days,milestone.days)} / ${milestone.days}일`}</span>`;
+    if(reached&&milestone.action&&!claimed) footer=`<button type="button" data-open-reward="${milestone.action}">선물 고르기 →</button>`;
+    if(claimed&&milestone.action) footer='<span class="reward-status">✓ 선택 완료</span>';
+    return `<article class="${classes}"><span class="reward-day">${milestone.days}일${reached?'<i>✓</i>':''}</span><h4>${milestone.title}</h4><p>${milestone.description}</p>${footer}</article>`;
+  }).join('');
+}
+function saveMilestoneRewards(){ localStorage.setItem(MILESTONE_REWARDS_KEY,JSON.stringify(milestoneRewards)); }
+function hexColor(value){ return `#${value.toString(16).padStart(6,'0')}`; }
+function openRewardModal(action){
+  if(isSharedHome){ showCaptureNotice('공유받은 집이에요','보상은 집의 원래 주인만 선택할 수 있어요.'); return; }
+  const requiredDays=action==='rare'?7:14;
+  if(recordedDayCount()<requiredDays) return;
+  currentRewardAction=action;
+  if(action==='rare'){
+    rewardModalTitle.innerHTML='7일의 잘한 나에게<br /><em>희귀 아이템 선물</em>';
+    rewardModalDescription.textContent='마음에 드는 장식 하나를 골라 집에 놓아보세요. 한 번 선택하면 이 집의 소중한 기념품이 됩니다.';
+    rewardChoiceList.innerHTML=RARE_REWARD_OPTIONS.map(option=>`<button class="reward-choice" type="button" data-reward-choice="${option.id}"><img src="${decorThumbnail(option.id)}" alt="${option.label}" /><b>${option.label}</b><small>${option.description}</small></button>`).join('');
+  } else {
+    rewardModalTitle.innerHTML='14일의 잘한 나에게<br /><em>외관 변경 선물</em>';
+    rewardModalDescription.textContent='지붕·창문·현관이 함께 어울리는 외관 색감을 골라주세요.';
+    rewardChoiceList.innerHTML=EXTERIOR_REWARD_OPTIONS.map(option=>`<button class="reward-choice" type="button" data-reward-choice="${option.id}"><span class="exterior-swatch" style="--swatch-roof:${hexColor(option.roof)};--swatch-door:${hexColor(option.door)}"><i></i></span><b>${option.label}</b><small>${option.description}</small></button>`).join('');
+  }
+  rewardBackdrop.classList.add('open');
+  rewardBackdrop.setAttribute('aria-hidden','false');
+}
+function closeRewardModal(){
+  rewardBackdrop.classList.remove('open');
+  rewardBackdrop.setAttribute('aria-hidden','true');
+  currentRewardAction=null;
+}
+function chooseMilestoneReward(choice){
+  if(currentRewardAction==='rare'&&!milestoneRewards.rareItem){
+    const reward=RARE_REWARD_OPTIONS.find(option=>option.id===choice);
+    if(!reward) return;
+    milestoneRewards.rareItem=choice;
+    saveMilestoneRewards();
+    addDecoration(choice,memories.length+7,true,`7일 보상 · ${reward.label}`,'milestone-7');
+    settleGroundDecorations();
+    closeRewardModal();
+    renderRewardJourney();
+    showCaptureNotice(`${reward.label}이 도착했어요!`,'7일의 잘한 내가 만든 특별한 장식을 집에 놓았어요.');
+    return;
+  }
+  if(currentRewardAction==='exterior'&&!milestoneRewards.exteriorStyle){
+    const style=EXTERIOR_REWARD_OPTIONS.find(option=>option.id===choice);
+    if(!style) return;
+    milestoneRewards.exteriorStyle=choice;
+    saveMilestoneRewards();
+    applyExteriorReward();
+    closeRewardModal();
+    renderRewardJourney();
+    showCaptureNotice(`${style.label}으로 바뀌었어요!`,'14일 동안 쌓아온 잘한 일이 집의 새로운 분위기가 되었어요.');
+  }
+}
 function isInteriorUnlocked(){ return recordedDayCount()>=INTERIOR_UNLOCK_DAYS; }
 function updateDoorMissionUI(){
   const days=recordedDayCount();
@@ -1010,9 +1133,9 @@ function updateDoorMissionUI(){
   const unlocked=isInteriorUnlocked();
   doorMissionBadge.classList.toggle('unlocked',unlocked);
   doorMissionBadge.querySelector('.door-mission-icon').textContent=unlocked?'🔑':'🔒';
-  doorMissionCopy.textContent=unlocked?'문을 눌러 실내 꾸미기':'3일 기록 후 공개';
+  doorMissionCopy.textContent=unlocked?'문을 눌러 실내 꾸미기':'서로 다른 날 3번';
   doorMissionCount.textContent=unlocked?'OPEN':`${progress} / ${INTERIOR_UNLOCK_DAYS}`;
-  doorMissionBadge.setAttribute('aria-label',unlocked?'실내 꾸미기 열기':`문 열기 미션 ${progress}/${INTERIOR_UNLOCK_DAYS}일`);
+  doorMissionBadge.setAttribute('aria-label',unlocked?'실내 꾸미기 열기':`서로 다른 날 기록 ${progress}/${INTERIOR_UNLOCK_DAYS}번, 문 열기 미션`);
 }
 function saveInteriorLayout(){ persistLocal(INTERIOR_LAYOUT_KEY,JSON.stringify(interiorLayout)); }
 function ensureInteriorLayout(){
@@ -1102,12 +1225,17 @@ function finishInteriorDrag(){
 }
 
 function renderRecords(){
-  const total = memories.length; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
-  previewCount.textContent=`장식 ${String(total).padStart(2,'0')}개`;
+  const total = memories.length;
+  const monthlyDays=monthlyRecordedDayCount();
+  countEl.innerHTML=`${String(monthlyDays).padStart(2,'0')} <small>/ ${MONTHLY_TARGET_DAYS}일</small>`;
+  progressFill.style.width=`${Math.min(monthlyDays/MONTHLY_TARGET_DAYS*100,100)}%`;
+  const decorationTotal=total+(milestoneRewards.rareItem?1:0);
+  previewCount.textContent=`장식 ${String(decorationTotal).padStart(2,'0')}개`;
   todayPreview.innerHTML=memories[0]?memories[0].text.replace(/(.{17})/g,'$1<br>'):'여기에 오늘 잘한 일을<br />기록해 주세요.';
   const shown = memories.slice(0,3).map(m=>`<li><span class="memory-dot ${m.decor}">${DECOR_INFO[m.decor]?.icon||'✦'}</span><div><b>${escapeHTML(m.text)}</b><small>${formatMemoryTimestamp(m.date)}</small></div></li>`).join('');
   recentList.innerHTML=shown||'<li><span class="memory-dot">＋</span><div><b>아직 기록이 없어요</b><small>첫 잘한 일을 남기면 이곳에 나타나요.</small></div></li>';
   updateDoorMissionUI();
+  renderRewardJourney();
   renderInteriorInventory();
   if(interiorView.classList.contains('open')) renderInteriorItems();
 }
@@ -1437,6 +1565,17 @@ document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&interiorVi
 document.querySelector('#open-manager').addEventListener('click',openManager);
 document.querySelector('#close-manager').addEventListener('click',closeManager);
 managerBackdrop.addEventListener('click',event=>{ if(event.target===managerBackdrop) closeManager(); });
+rewardMilestones.addEventListener('click',event=>{
+  const button=event.target.closest('[data-open-reward]');
+  if(button) openRewardModal(button.dataset.openReward);
+});
+document.querySelector('#close-reward').addEventListener('click',closeRewardModal);
+rewardBackdrop.addEventListener('click',event=>{ if(event.target===rewardBackdrop) closeRewardModal(); });
+rewardChoiceList.addEventListener('click',event=>{
+  const choice=event.target.closest('[data-reward-choice]');
+  if(choice) chooseMilestoneReward(choice.dataset.rewardChoice);
+});
+document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&rewardBackdrop.classList.contains('open')) closeRewardModal(); });
 managerList.addEventListener('click',event=>{
   const edit=event.target.closest('[data-edit-memory]');
   const remove=event.target.closest('[data-delete-memory]');

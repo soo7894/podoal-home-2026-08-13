@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=11" />
+    <link rel="stylesheet" href="./styles.css?v=12" />
   </head>
   <body>
     <main class="app-shell">
@@ -65,7 +65,7 @@
           </button>
           <button class="door-mission-badge" id="door-mission-badge" type="button" aria-label="실내 공개 미션 확인">
             <span class="door-mission-icon" aria-hidden="true">🔒</span>
-            <span><b>문 열기</b><small id="door-mission-copy">3일 기록 후 공개</small></span>
+            <span><b>문 열기</b><small id="door-mission-copy">서로 다른 날 3번</small></span>
             <i id="door-mission-count">0 / 3</i>
           </button>
           <div class="scene-hint"><span>↔↕</span> 좌우·위아래로 보고, 장식은 끌어 놓기</div>
@@ -99,9 +99,9 @@
           <h2>차곡차곡 쌓인<br />나의 <em>잘한 일</em></h2>
         </div>
         <div class="progress-card">
-          <div class="progress-top"><span>이번 달의 따뜻한 기록</span><b id="record-count">00 <small>/ 31</small></b></div>
+          <div class="progress-top"><span>이번 달의 따뜻한 기록일</span><b id="record-count">00 <small>/ 15일</small></b></div>
           <div class="progress-track"><i id="progress-fill"></i></div>
-          <p>한 번의 기록이 집을 조금 더 나답게 만들어요.</p>
+          <p>매일이 아니어도 괜찮아요. 서로 다른 15일을 천천히 채워요.</p>
         </div>
         <div class="recent-card">
           <p class="mini-title">RECENT MEMORIES</p>
@@ -110,6 +110,14 @@
           </ul>
           <button class="text-button" id="open-manager" type="button">기록 관리하기 →</button>
         </div>
+        <section class="reward-journey" aria-labelledby="reward-journey-title">
+          <div class="reward-journey-head">
+            <div><p class="mini-title">MY WARM REWARD JOURNEY</p><h3 id="reward-journey-title">잘한 일이 쌓일수록 집도 자라요</h3></div>
+            <span id="reward-total-days">누적 0일</span>
+          </div>
+          <p class="reward-journey-note">연속으로 기록하지 않아도 괜찮아요. 서로 다른 날에 남긴 기록은 사라지지 않고 계속 이어집니다.</p>
+          <div class="reward-journey-scroll"><div class="reward-milestones" id="reward-milestones"></div></div>
+        </section>
       </section>
     </main>
 
@@ -186,6 +194,16 @@
       </section>
     </div>
 
+    <div class="entry-backdrop reward-backdrop" id="reward-backdrop" aria-hidden="true">
+      <section class="reward-modal" role="dialog" aria-modal="true" aria-labelledby="reward-modal-title">
+        <button class="close-modal" id="close-reward" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> A SPECIAL GIFT</p>
+        <h2 id="reward-modal-title">새로운 보상이<br /><em>도착했어요!</em></h2>
+        <p class="reward-modal-description" id="reward-modal-description"></p>
+        <div class="reward-choice-list" id="reward-choice-list"></div>
+      </section>
+    </div>
+
     <div class="entry-backdrop manager-backdrop" id="manager-backdrop" aria-hidden="true">
       <section class="manager-modal" role="dialog" aria-modal="true" aria-labelledby="manager-title">
         <button class="close-modal" id="close-manager" aria-label="닫기">×</button>
@@ -211,7 +229,7 @@
           <li><b>1</b><span><strong>잘한 일 기록</strong>왼쪽의 ‘오늘의 잘한 일 기록하기’를 눌러요.</span></li>
           <li><b>2</b><span><strong>장식 배치</strong>생긴 장식을 끌어서 집 밖 원하는 곳에 놓아요.</span></li>
           <li><b>3</b><span><strong>집 둘러보기</strong>빈 공간을 드래그하면 집을 회전하고 위아래 시점도 바뀌어요.</span></li>
-          <li><b>4</b><span><strong>3일 미션</strong>서로 다른 3일에 기록하면 문을 열고 따뜻한 실내를 꾸밀 수 있어요.</span></li>
+          <li><b>4</b><span><strong>문 열기 미션</strong>서로 다른 날에 3번 기록하면 문을 열고 따뜻한 실내를 꾸밀 수 있어요.</span></li>
         </ol>
         <button class="primary-button save-button" id="finish-guide" type="button">시작하기 <span>→</span></button>
       </section>
@@ -224,7 +242,7 @@
           <p>MY WARM LITTLE HOME</p>
           <h2 id="interior-title"><span id="interior-house-name">우리네 집</span>의 따뜻한 원룸</h2>
         </div>
-        <span class="interior-mission-complete"><i>✓</i> 3일 미션 완료</span>
+        <span class="interior-mission-complete"><i>✓</i> 서로 다른 날 3번 완료</span>
       </header>
 
       <div class="interior-content">
@@ -278,6 +296,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=98"></script>
+    <script type="module" src="./main.js?v=99"></script>
   </body>
 </html>

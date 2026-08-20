@@ -245,6 +245,13 @@ let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREA
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
 let houseName = sharedHome?.houseName ?? (localStorage.getItem(HOUSE_NAME_KEY) || '우리');
 let interiorLayout = isSharedHome ? {} : JSON.parse(localStorage.getItem(INTERIOR_LAYOUT_KEY) || '{}');
+if(!isSharedHome&&!streakStartDate&&memories.length){
+  const firstRecordTime=Math.min(...memories.map(memory=>Date.parse(memory.date)).filter(Number.isFinite));
+  if(Number.isFinite(firstRecordTime)){
+    streakStartDate=localDateString(new Date(firstRecordTime));
+    persistLocal(STREAK_START_KEY,streakStartDate);
+  }
+}
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true, preserveDrawingBuffer:true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -681,13 +688,7 @@ if(type==='chime') {
   if(!savedPosition || savedPosition.x!==g.position.x || savedPosition.z!==g.position.z) saveDecorationPosition(g);
   if(animate) { const baseY=g.position.y; g.scale.setScalar(.01); const start=performance.now(); const grow=now=>{ const p=Math.min((now-start)/480,1); g.scale.setScalar(1+(1-p)*.15); g.position.y=baseY+Math.sin(p*Math.PI)*.22; if(p<1) requestAnimationFrame(grow); else g.position.y=baseY; }; requestAnimationFrame(grow); }
 }
-// a welcoming starter scene
-function addStarterDecorations(){
-  addDecoration('flower',0,false,'친구에게 먼저 안부를 물었다','starter-flower');
-  addDecoration('book',1,false,'미뤄둔 책을 20쪽 읽었다','starter-book');
-}
-function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i+2,false,m.text,`memory-${m.date||i}`,m.flowerColor)); }
-addStarterDecorations();
+function addStoredDecorations(){ memories.forEach((m,i)=>addDecoration(m.decor,i,false,m.text,`memory-${m.date||i}`,m.flowerColor)); }
 addStoredDecorations();
 function settleGroundDecorations(){
   for(let pass=0;pass<5;pass++){
@@ -720,7 +721,6 @@ function clearPlacedDecorations(){
 }
 function rebuildDecorations(){
   clearPlacedDecorations();
-  addStarterDecorations();
   addStoredDecorations();
   settleGroundDecorations();
 }
@@ -1080,11 +1080,11 @@ function finishInteriorDrag(){
 }
 
 function renderRecords(){
-  const total = memories.length+2; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
+  const total = memories.length; countEl.innerHTML=`${String(total).padStart(2,'0')} <small>/ 31</small>`; progressFill.style.width=`${Math.min(total/31*100,100)}%`;
   previewCount.textContent=`장식 ${String(total).padStart(2,'0')}개`;
-  if(memories[0]) todayPreview.innerHTML=memories[0].text.replace(/(.{17})/g,'$1<br>');
+  todayPreview.innerHTML=memories[0]?memories[0].text.replace(/(.{17})/g,'$1<br>'):'여기에 오늘 잘한 일을<br />기록해 주세요.';
   const shown = memories.slice(0,3).map(m=>`<li><span class="memory-dot ${m.decor}">${DECOR_INFO[m.decor]?.icon||'✦'}</span><div><b>${escapeHTML(m.text)}</b><small>${formatMemoryTimestamp(m.date)}</small></div></li>`).join('');
-  if(shown) recentList.innerHTML=shown;
+  recentList.innerHTML=shown||'<li><span class="memory-dot">＋</span><div><b>아직 기록이 없어요</b><small>첫 잘한 일을 남기면 이곳에 나타나요.</small></div></li>';
   updateDoorMissionUI();
   renderInteriorInventory();
   if(interiorView.classList.contains('open')) renderInteriorItems();
@@ -1245,7 +1245,21 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
   const text=input.value.trim();
   if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }
   const flowerColor=selectedDecor==='flower'?randomFlowerColor():null;
-  const memory={text,decor:selectedDecor,date:new Date().toISOString(),flowerColor}; memories.unshift(memory); persistLocal(STORAGE_KEY,JSON.stringify(memories)); addDecoration(selectedDecor,memories.length+1,true,text,`memory-${memory.date}`,flowerColor); renderRecords(); input.value=''; closeModal(); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3600);
+  const recordedAt=new Date();
+  const memory={text,decor:selectedDecor,date:recordedAt.toISOString(),flowerColor};
+  const shouldSetStartDate=!streakStartDate;
+  memories.unshift(memory);
+  persistLocal(STORAGE_KEY,JSON.stringify(memories));
+  if(shouldSetStartDate){
+    streakStartDate=localDateString(recordedAt);
+    persistLocal(STREAK_START_KEY,streakStartDate);
+    updateStreak();
+  }
+  addDecoration(selectedDecor,memories.length,true,text,`memory-${memory.date}`,flowerColor);
+  renderRecords();
+  input.value='';
+  closeModal();
+  showCaptureNotice(shouldSetStartDate?'오늘부터 시작했어요!':'오늘의 장식이 놓였어요!',shouldSetStartDate?'첫 기록 날짜가 시작일로 자동 설정되고, 장식도 집에 놓였어요.':'집이 조금 더 따뜻해졌습니다.');
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
 document.querySelector('#sound-button').addEventListener('click',e=>{ e.currentTarget.textContent=e.currentTarget.textContent==='♪'?'×':'♪'; });

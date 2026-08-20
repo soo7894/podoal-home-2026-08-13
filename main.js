@@ -61,6 +61,7 @@ const interiorInventoryList = document.querySelector('#interior-inventory-list')
 const interiorItemCount = document.querySelector('#interior-item-count');
 const interiorHouseName = document.querySelector('#interior-house-name');
 const interiorRoomMap = document.querySelector('#interior-room-map');
+const interior3DHint = document.querySelector('#interior-3d-hint');
 const interiorProgressCopy = document.querySelector('#interior-progress-copy');
 const interiorRoomAction = document.querySelector('#interior-room-action');
 const roomActionIcon = document.querySelector('#room-action-icon');
@@ -144,7 +145,7 @@ const DECOR_CATEGORIES=[
 const FUTURE_DECOR_OPTIONS = ['작은 온실','연못과 오리','꽃 아치 조명','포도나무 그늘','비밀 우체통','새로운 친구'];
 const INTERIOR_ROOMS = [
   {id:'living',label:'거실',icon:'🛋️',unlockDays:3,action:'쉬어가기',description:'따뜻하게 쉬고 오늘의 기록을 돌아보는 공간',target:[1.25,.78,1.0],bounds:{x:[-.05,3.05],z:[-.2,2.75]}},
-  {id:'entry',label:'현관',icon:'🚪',unlockDays:3,action:'기분 남기기',description:'오늘의 기분을 내려놓고 집으로 들어오는 공간',target:[-.55,.75,-2.45],bounds:{x:[-1.25,.05],z:[-3.0,-2.05]}},
+  {id:'entry',label:'현관',icon:'🚪',unlockDays:3,action:'현관문 열기',description:'문을 열면 내가 꾸민 마당이 그대로 보여요',target:[-.55,.75,-2.45],bounds:{x:[-1.25,.05],z:[-3.0,-2.05]}},
   {id:'kitchen',label:'주방·식당',icon:'🍳',unlockDays:7,action:'요리하기',description:'모은 재료로 따뜻한 한 끼를 만드는 공간',target:[1.45,.78,-1.72],bounds:{x:[.05,3.05],z:[-2.95,-.42]}},
   {id:'bedroom',label:'침실',icon:'🛏️',unlockDays:14,action:'잘 준비하기',description:'하루를 정리하고 편안히 쉬는 공간',target:[-1.62,.72,1.0],bounds:{x:[-3.05,-.22],z:[-.15,2.35]}},
   {id:'bathroom',label:'욕실',icon:'🛁',unlockDays:30,action:'나 돌보기',description:'나를 씻고 다정하게 돌보는 공간',target:[-2.25,.72,-1.68],bounds:{x:[-3.05,-1.42],z:[-2.95,-.42]}},
@@ -422,6 +423,56 @@ interiorBox(1.0,1.16,.05,0x9acb70,new THREE.Vector3(-2.43,.72,-3.57),interiorRoo
 interiorSphere(.34,palette.leaf,new THREE.Vector3(-2.68,.94,-3.48),interiorRoomBackWall);
 interiorCylinder(.07,.09,.62,palette.wood,new THREE.Vector3(-2.68,.45,-3.48),interiorRoomBackWall);
 
+// The entrance is a real moving door. Opening it reveals the same warm garden palette outside.
+const interiorEntranceDoorPivot=new THREE.Group();
+interiorEntranceDoorPivot.position.set(-2.99,.13,-3.20);
+interiorWorld.add(interiorEntranceDoorPivot);
+const interiorEntranceDoor=interiorBox(1.05,2.35,.14,palette.wood,new THREE.Vector3(.535,1.18,0),interiorEntranceDoorPivot);
+interiorEntranceDoor.userData.isInteriorEntranceDoor=true;
+interiorBox(.70,.06,.04,palette.trim,new THREE.Vector3(.535,1.62,.09),interiorEntranceDoorPivot);
+interiorBox(.70,.06,.04,palette.trim,new THREE.Vector3(.535,.70,.09),interiorEntranceDoorPivot);
+interiorSphere(.075,0xf5c84b,new THREE.Vector3(.86,1.18,.11),interiorEntranceDoorPivot);
+let interiorEntranceDoorOpen=false;
+let interiorEntranceDoorTarget=0;
+const INTERIOR_ENTRANCE_OPEN_ANGLE=Math.PI*.48;
+
+const interiorGardenDecorGroup=new THREE.Group();
+interiorRoomBackWall.add(interiorGardenDecorGroup);
+function clearThreeGroup(group){
+  group.children.slice().forEach(child=>{
+    child.traverse(object=>{ object.geometry?.dispose?.(); if(object.material){ const materials=Array.isArray(object.material)?object.material:[object.material]; materials.forEach(material=>material.dispose?.()); } });
+    group.remove(child);
+  });
+}
+function syncInteriorGardenPreview(){
+  clearThreeGroup(interiorGardenDecorGroup);
+  const visibleDecor=placed.children.filter(decoration=>decoration.userData.memoryText&&!decoration.userData.isRoofDecoration).slice(0,8);
+  visibleDecor.forEach((decoration,index)=>{
+    const group=new THREE.Group();
+    const x=-2.43+THREE.MathUtils.clamp(decoration.position.x/5,-.42,.42);
+    const z=-3.60-index*.035;
+    group.position.set(x,.20,z);
+    const type=decoration.userData.type;
+    if(['tree','bigtree','topiary'].includes(type)){
+      interiorCylinder(.025,.035,.25,palette.wood,new THREE.Vector3(0,.13,0),group,10);
+      interiorSphere(type==='bigtree'?.16:.12,palette.leaf,new THREE.Vector3(0,.34,0),group);
+    }else if(['flower','flowerbed','sunflower','leafplant'].includes(type)){
+      interiorCylinder(.06,.08,.12,palette.pot,new THREE.Vector3(0,.06,0),group,10);
+      interiorSphere(.08,type==='sunflower'?0xf5c74b:0xea8790,new THREE.Vector3(0,.18,0),group);
+    }else{
+      interiorBox(.12,.12,.12,0xe78a57,new THREE.Vector3(0,.07,0),group);
+    }
+    interiorGardenDecorGroup.add(group);
+  });
+}
+function toggleInteriorEntranceDoor(){
+  interiorEntranceDoorOpen=!interiorEntranceDoorOpen;
+  interiorEntranceDoorTarget=interiorEntranceDoorOpen?INTERIOR_ENTRANCE_OPEN_ANGLE:0;
+  if(interiorEntranceDoorOpen) syncInteriorGardenPreview();
+  roomActionDescription.textContent=interiorEntranceDoorOpen?'열린 문 너머로 지금의 마당이 보여요.':'문을 열면 내가 꾸민 마당이 그대로 보여요.';
+  interiorActivityButton.textContent=interiorEntranceDoorOpen?'현관문 닫기':'현관문 열기';
+}
+
 // Window and warm pendant repeat the exterior palette and toy proportions.
 interiorBox(1.62,1.25,.07,palette.glass,new THREE.Vector3(.05,2.22,-3.31),interiorRoomBackWall);
 interiorBox(.10,1.42,.10,palette.cream,new THREE.Vector3(.05,2.22,-3.25),interiorRoomBackWall);
@@ -492,7 +543,7 @@ const interiorRaycaster=new THREE.Raycaster();
 const interiorPointer=new THREE.Vector2();
 const interiorGroundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const interiorGroundPoint=new THREE.Vector3();
-let interiorYaw=.58,interiorPitch=.52,interiorDistance=11.8,interiorControl=null;
+let interiorYaw=.58,interiorPitch=.52,interiorDistance=11.8,interiorControl=null,interiorInsideMode=false;
 function markInteriorItem(group,id){ group.userData.interiorItemId=id; group.traverse(child=>{ child.userData.interiorItemRoot=group; }); return group; }
 function buildInterior3DItem(item){
   const group=new THREE.Group(); interior3DItemsGroup.add(group); const type=item.id;
@@ -516,13 +567,32 @@ function syncInterior3DItems(){
   clearInterior3DItems();
   const days=interiorDayCount(); const layout=activeInteriorLayout();
   INTERIOR_ITEMS.filter(item=>days>=item.unlockDays&&layout[item.id]?.placed!==false).forEach(item=>{ const saved=layout[item.id]||item; const position=interiorLayoutToPosition(saved); const group=buildInterior3DItem(item); group.position.set(position.x,.12,position.z); });
+  syncDoorwayInteriorPreview();
 }
 function setInteriorPointer(event){ const bounds=interiorCanvas.getBoundingClientRect(); interiorPointer.x=((event.clientX-bounds.left)/bounds.width)*2-1; interiorPointer.y=-((event.clientY-bounds.top)/bounds.height)*2+1; interiorRaycaster.setFromCamera(interiorPointer,interiorCamera); }
 function interiorItemAtEvent(event){ setInteriorPointer(event); const hit=interiorRaycaster.intersectObjects(interior3DItemsGroup.children,true)[0]; return hit?.object?.userData?.interiorItemRoot||null; }
-function updateInteriorCamera(){ const horizontal=Math.cos(interiorPitch)*interiorDistance; interiorCamera.position.set(Math.sin(interiorYaw)*horizontal,interiorTarget.y+Math.sin(interiorPitch)*interiorDistance,Math.cos(interiorYaw)*horizontal); interiorCamera.lookAt(interiorTarget); }
+function interiorDoorAtEvent(event){ setInteriorPointer(event); return interiorRaycaster.intersectObject(interiorEntranceDoorPivot,true).length>0; }
+function updateInteriorViewMode(){
+  const nextInside=interiorDistance<=5.8;
+  if(nextInside===interiorInsideMode) return;
+  interiorInsideMode=nextInside;
+  interiorView.classList.toggle('inside-mode',interiorInsideMode);
+  interior3DHint.innerHTML=interiorInsideMode?'<span>↡</span> 집 안을 둘러보는 중 · 휠을 아래로 내려 전체 보기':'<span>↟</span> 휠을 위로 올려 집 안으로 · 빈 공간을 끌어 둘러보기';
+}
+function updateInteriorCamera(){
+  updateInteriorViewMode();
+  const insideProgress=THREE.MathUtils.clamp((7.4-interiorDistance)/5.15,0,1);
+  const cameraPitch=THREE.MathUtils.lerp(interiorPitch,THREE.MathUtils.clamp(interiorPitch,.17,.34),insideProgress);
+  const horizontal=Math.cos(cameraPitch)*interiorDistance;
+  interiorCamera.position.set(Math.sin(interiorYaw)*horizontal,interiorTarget.y+Math.sin(cameraPitch)*interiorDistance,Math.cos(interiorYaw)*horizontal);
+  interiorCamera.fov=THREE.MathUtils.lerp(36,52,insideProgress);
+  interiorCamera.updateProjectionMatrix();
+  interiorCamera.lookAt(interiorTarget);
+}
 function resizeInteriorRenderer(){ const width=interiorCanvas.clientWidth,height=interiorCanvas.clientHeight; if(!width||!height) return; interiorRenderer.setSize(width,height,false); interiorCamera.aspect=width/height; interiorCamera.updateProjectionMatrix(); }
 function renderInterior3D(){
   resizeInteriorRenderer(); updateInteriorCamera();
+  interiorEntranceDoorPivot.rotation.y+=(interiorEntranceDoorTarget-interiorEntranceDoorPivot.rotation.y)*.14;
   interiorRoomBackWall.visible=interiorCamera.position.z>-3.25;
   interiorRoomLeftWall.visible=interiorCamera.position.x>-3.25;
   interiorRoomRightWall.visible=interiorCamera.position.x<3.25;
@@ -553,18 +623,41 @@ const roofCap = mesh(new THREE.CylinderGeometry(.22,.29,.52,20),mat(palette.wood
 // front door and windows
 const frontFacade=new THREE.Group(); world.add(frontFacade);
 const warmInterior = new THREE.Group(); warmInterior.visible=false; world.add(warmInterior);
-// A small three-dimensional room sits behind the open doorway.
-const interiorFloor=box(1.03,.08,2.38,0x704838,new THREE.Vector3(0,.12,.67),warmInterior);
-const interiorBackWall=box(1.02,2.24,.09,0xc88362,new THREE.Vector3(0,1.17,-.52),warmInterior);
-const interiorRug=mesh(new THREE.CircleGeometry(.34,24),mat(0x7fa5a0),new THREE.Vector3(0,.17,.56),warmInterior); interiorRug.rotation.x=-Math.PI/2;
-const sofa=box(.72,.47,.28,0x6c8f89,new THREE.Vector3(-.05,.4,-.18),warmInterior);
-box(.78,.10,.34,0xb2d0be,new THREE.Vector3(-.05,.68,-.18),warmInterior);
-const table=box(.36,.28,.28,0x6f4739,new THREE.Vector3(.26,.34,.5),warmInterior);
-mesh(new THREE.CylinderGeometry(.15,.17,.06,16),mat(0xf3c45f),new THREE.Vector3(.26,.52,.5),warmInterior);
-const lampStand=cylinder(.025,.025,.54,0x705044,new THREE.Vector3(.34,.63,-.28),warmInterior);
-const lampShade=mesh(new THREE.ConeGeometry(.16,.22,16,1,true),mat(0xffdf81),new THREE.Vector3(.34,.99,-.28),warmInterior); lampShade.rotation.x=Math.PI;
-const picture=box(.38,.30,.035,0x8e5948,new THREE.Vector3(-.12,1.58,-.46),warmInterior);
+// The doorway preview is rebuilt from the user's actual entry/living-room layout.
+box(1.03,.08,2.38,0x704838,new THREE.Vector3(0,.12,.67),warmInterior);
+box(1.02,2.24,.09,0xc88362,new THREE.Vector3(0,1.17,-.52),warmInterior);
+box(.38,.30,.035,0x8e5948,new THREE.Vector3(-.12,1.58,-.46),warmInterior);
 box(.28,.20,.02,0x9fc8ba,new THREE.Vector3(-.12,1.58,-.43),warmInterior);
+const warmInteriorItemsGroup=new THREE.Group(); warmInterior.add(warmInteriorItemsGroup);
+function syncDoorwayInteriorPreview(){
+  clearThreeGroup(warmInteriorItemsGroup);
+  const days=interiorDayCount();
+  const layout=activeInteriorLayout();
+  INTERIOR_ITEMS.filter(item=>['entry','living'].includes(item.room)&&days>=item.unlockDays&&layout[item.id]?.placed!==false).forEach(item=>{
+    const saved=layout[item.id]||item;
+    const group=new THREE.Group();
+    const sourceX=THREE.MathUtils.clamp((saved.x-50)/45*3,-3.05,3.05);
+    const sourceZ=THREE.MathUtils.clamp((saved.y-53)/35*2.65,-2.75,2.75);
+    group.position.set(sourceX*.12,.16,.58+sourceZ*.28);
+    if(item.id==='sun-rug'){
+      const rug=sphere(.22,0xefb74e,new THREE.Vector3(0,.01,0),group); rug.scale.set(1,.05,.72);
+    }else if(item.id==='leaf-pot'){
+      cylinder(.07,.09,.16,palette.pot,new THREE.Vector3(0,.08,0),group);
+      sphere(.10,palette.leaf,new THREE.Vector3(0,.25,0),group);
+    }else if(item.id==='mood-lamp'){
+      cylinder(.012,.014,.28,palette.dark,new THREE.Vector3(0,.16,0),group,8);
+      const shade=mesh(new THREE.ConeGeometry(.11,.14,12),mat(0xf2c44f),new THREE.Vector3(0,.34,0),group); shade.rotation.x=Math.PI;
+    }else if(item.id==='book-stack'){
+      box(.22,.06,.16,0x6e9c91,new THREE.Vector3(0,.04,0),group);
+      box(.20,.05,.15,0xdf795e,new THREE.Vector3(0,.095,0),group);
+    }else if(item.id==='welcome-mat'){
+      box(.30,.025,.17,0xd58b52,new THREE.Vector3(0,.01,0),group);
+    }else{
+      sphere(.13,0xee8c72,new THREE.Vector3(0,.08,0),group);
+    }
+    warmInteriorItemsGroup.add(group);
+  });
+}
 const doorPivot=new THREE.Group(); doorPivot.position.set(-.54,.08,2.04); world.add(doorPivot);
 const doorMesh=box(1.08,1.92,.16,palette.wood,new THREE.Vector3(.54,.96,0),doorPivot); doorMesh.userData.isDoor=true;
 box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,1.38,.095),doorPivot); box(.72,.055,.035,palette.trim,new THREE.Vector3(.54,.56,.095),doorPivot);
@@ -1067,9 +1160,10 @@ function toggleDoor(){
   }
   doorOpen=!doorOpen;
   doorTargetRotation=doorOpen?OPEN_DOOR_ANGLE:0;
+  if(doorOpen) syncDoorwayInteriorPreview();
   warmInterior.visible=doorOpen;
   clearTimeout(interiorOpenTimer);
-  if(doorOpen) interiorOpenTimer=setTimeout(openInterior,520);
+  if(doorOpen) interiorOpenTimer=setTimeout(openInterior,850);
 }
 function getGroundPointAtEvent(event){
   const rect=canvas.getBoundingClientRect();
@@ -1387,6 +1481,10 @@ function updateInteriorRoomPanel(){
   roomActionTitle.textContent=room.label;
   roomActionDescription.textContent=room.description;
   interiorActivityButton.textContent=room.action;
+  if(room.id==='entry'){
+    roomActionDescription.textContent=interiorEntranceDoorOpen?'열린 문 너머로 지금의 마당이 보여요.':room.description;
+    interiorActivityButton.textContent=interiorEntranceDoorOpen?'현관문 닫기':room.action;
+  }
   interiorRoomAction.dataset.room=room.id;
   interiorInventoryTitle.textContent=`${room.label} 아이템`;
   interiorInventoryHelp.textContent=`${room.label}에서 사용할 아이템을 골라, 표시된 공간 안에 놓아보세요.`;
@@ -1407,13 +1505,17 @@ function selectInteriorRoom(roomId,{focus=true}={}){
     return;
   }
   activeInteriorRoomId=room.id;
-  if(focus){ interiorTarget.set(...room.target); interiorDistance=9.7; }
+  if(focus){ interiorTarget.set(...room.target); interiorDistance=interiorInsideMode?4.4:9.7; }
   renderInteriorRoomMap();
   updateInteriorRoomPanel();
   renderInteriorInventory();
 }
 function runInteriorActivity(){
   const room=interiorRoomById(activeInteriorRoomId);
+  if(room.id==='entry'){
+    toggleInteriorEntranceDoor();
+    return;
+  }
   const messages={
     living:['포근한 소파에 앉아 오늘 적어둔 잘한 일을 천천히 돌아봤어요.'],
     entry:['오늘의 마음을 현관에 살며시 내려두고 따뜻한 집으로 들어왔어요.'],
@@ -1491,15 +1593,19 @@ function closeInterior(){
   interiorView.classList.remove('open');
   interiorView.setAttribute('aria-hidden','true');
   document.body.classList.remove('interior-open');
+  interiorDistance=9.7;
+  interiorInsideMode=false;
+  interiorView.classList.remove('inside-mode');
+  interior3DHint.innerHTML='<span>↟</span> 휠을 위로 올려 집 안으로 · 빈 공간을 끌어 둘러보기';
   doorOpen=false;
   doorTargetRotation=0;
   warmInterior.visible=false;
 }
 function requestInteriorOpen(){
   if(!isInteriorUnlocked()) return toggleDoor();
-  if(!doorOpen){ doorOpen=true; doorTargetRotation=OPEN_DOOR_ANGLE; warmInterior.visible=true; }
+  if(!doorOpen){ doorOpen=true; doorTargetRotation=OPEN_DOOR_ANGLE; syncDoorwayInteriorPreview(); warmInterior.visible=true; }
   clearTimeout(interiorOpenTimer);
-  interiorOpenTimer=setTimeout(openInterior,360);
+  interiorOpenTimer=setTimeout(openInterior,850);
 }
 
 function createAdminInteriorLayout(){
@@ -1568,9 +1674,10 @@ function stopAdminPreview(){
 function startInteriorControl(event){
   if(event.button!==undefined&&event.button!==0) return;
   const item=interiorItemAtEvent(event);
-  interiorControl={mode:item&&!isSharedHome?'item':'orbit',item,id:item?.userData?.interiorItemId||'',x:event.clientX,y:event.clientY,moved:false};
+  const door=!item&&interiorDoorAtEvent(event);
+  interiorControl={mode:door?'door':item&&!isSharedHome?'item':'orbit',item,id:item?.userData?.interiorItemId||'',x:event.clientX,y:event.clientY,moved:false};
   interiorCanvas.setPointerCapture?.(event.pointerId);
-  interiorCanvas.style.cursor=interiorControl.mode==='item'?'grabbing':'grabbing';
+  interiorCanvas.style.cursor=interiorControl.mode==='door'?'pointer':'grabbing';
   event.preventDefault();
 }
 function moveInteriorControl(event){
@@ -1588,7 +1695,7 @@ function moveInteriorControl(event){
       const saved=interiorPositionToLayout(x,z),layout=activeInteriorLayout();
       layout[interiorControl.id]={...(layout[interiorControl.id]||{}),...saved,placed:true};
     }
-  }else{
+  }else if(interiorControl.mode==='orbit'){
     interiorYaw-=dx*.009;
     interiorPitch=THREE.MathUtils.clamp(interiorPitch+dy*.006,.22,1.02);
   }
@@ -1597,6 +1704,7 @@ function moveInteriorControl(event){
 }
 function finishInteriorControl(event){
   if(!interiorControl) return;
+  if(interiorControl.mode==='door'&&!interiorControl.moved) toggleInteriorEntranceDoor();
   if(interiorControl.mode==='item'&&!adminPreviewActive) saveInteriorLayout();
   if(interiorControl.mode==='item') renderInteriorInventory();
   interiorControl=null;
@@ -1926,7 +2034,7 @@ interiorCanvas.addEventListener('pointerdown',startInteriorControl);
 interiorCanvas.addEventListener('pointermove',moveInteriorControl,{passive:false});
 interiorCanvas.addEventListener('pointerup',finishInteriorControl);
 interiorCanvas.addEventListener('pointercancel',finishInteriorControl);
-interiorCanvas.addEventListener('wheel',event=>{ interiorDistance=THREE.MathUtils.clamp(interiorDistance+event.deltaY*.008,8.4,17); event.preventDefault(); },{passive:false});
+interiorCanvas.addEventListener('wheel',event=>{ interiorDistance=THREE.MathUtils.clamp(interiorDistance+event.deltaY*.010,2.25,17); event.preventDefault(); },{passive:false});
 interiorRoomMap.addEventListener('click',event=>{
   const button=event.target.closest('[data-interior-room]');
   if(button) selectInteriorRoom(button.dataset.interiorRoom);

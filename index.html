@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20" />
+    <link rel="stylesheet" href="./styles.css?v=21" />
   </head>
   <body>
     <main class="app-shell">
@@ -276,7 +276,7 @@
               <div><b id="room-action-title">거실</b><small id="room-action-description">따뜻하게 쉬고 기록을 돌아보는 공간</small></div>
               <button id="interior-activity-button" type="button">쉬어가기</button>
             </section>
-            <div class="interior-3d-hint"><span>↔</span> 빈 공간을 끌어 회전 · 휠로 확대/축소 · 아이템은 끌어 배치</div>
+            <div class="interior-3d-hint" id="interior-3d-hint"><span>↟</span> 휠을 위로 올려 집 안으로 · 빈 공간을 끌어 둘러보기</div>
             <div class="interior-items" id="interior-items" hidden></div>
           </div>
         </div>
@@ -295,6 +295,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=106"></script>
+    <script type="module" src="./main.js?v=107"></script>
   </body>
 </html>

@@ -406,6 +406,9 @@ nameplateCanvas.width = 512; nameplateCanvas.height = 512;
 const nameplateContext = nameplateCanvas.getContext('2d');
 const nameplateTexture = new THREE.CanvasTexture(nameplateCanvas);
 nameplateTexture.colorSpace = THREE.SRGBColorSpace;
+nameplateTexture.minFilter = THREE.LinearMipmapLinearFilter;
+nameplateTexture.magFilter = THREE.LinearFilter;
+nameplateTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 function drawNameplate(){
   const ctx = nameplateContext; ctx.clearRect(0,0,512,512); ctx.save(); ctx.scale(2,2);
   ctx.beginPath(); ctx.moveTo(128,231);
@@ -423,7 +426,20 @@ function drawNameplate(){
   ctx.restore(); nameplateTexture.needsUpdate=true;
 }
 drawNameplate();
-const nameplate = mesh(new THREE.PlaneGeometry(1.42,1.42),new THREE.MeshBasicMaterial({map:nameplateTexture,transparent:true,alphaTest:.05,depthWrite:false,depthTest:true,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,side:THREE.DoubleSide}),new THREE.Vector3(0,2.65,2.18));
+const heartPlateScale=1.42/256;
+const heartPlateX=value=>(value-128)*heartPlateScale;
+const heartPlateY=value=>(128-value)*heartPlateScale;
+const heartPlateShape=new THREE.Shape();
+heartPlateShape.moveTo(heartPlateX(128),heartPlateY(231));
+heartPlateShape.bezierCurveTo(heartPlateX(112),heartPlateY(216),heartPlateX(35),heartPlateY(165),heartPlateX(35),heartPlateY(92));
+heartPlateShape.bezierCurveTo(heartPlateX(35),heartPlateY(52),heartPlateX(82),heartPlateY(31),heartPlateX(111),heartPlateY(56));
+heartPlateShape.bezierCurveTo(heartPlateX(119),heartPlateY(63),heartPlateX(124),heartPlateY(71),heartPlateX(128),heartPlateY(80));
+heartPlateShape.bezierCurveTo(heartPlateX(132),heartPlateY(71),heartPlateX(137),heartPlateY(63),heartPlateX(145),heartPlateY(56));
+heartPlateShape.bezierCurveTo(heartPlateX(174),heartPlateY(31),heartPlateX(221),heartPlateY(52),heartPlateX(221),heartPlateY(92));
+heartPlateShape.bezierCurveTo(heartPlateX(221),heartPlateY(165),heartPlateX(144),heartPlateY(216),heartPlateX(128),heartPlateY(231));
+const nameplatePlate=mesh(new THREE.ExtrudeGeometry(heartPlateShape,{depth:.055,bevelEnabled:false,curveSegments:24}),mat(0xd97565),new THREE.Vector3(0,2.65,1.965));
+nameplatePlate.castShadow=false;
+const nameplate = mesh(new THREE.PlaneGeometry(1.42,1.42),new THREE.MeshBasicMaterial({map:nameplateTexture,transparent:true,alphaTest:.05,depthWrite:true,depthTest:true,side:THREE.FrontSide}),new THREE.Vector3(0,2.65,2.024));
 nameplate.renderOrder = 3;
 nameplate.visible = true;
 // chimney

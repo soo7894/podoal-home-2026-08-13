@@ -59,6 +59,10 @@ const interiorItems = document.querySelector('#interior-items');
 const interiorInventoryList = document.querySelector('#interior-inventory-list');
 const interiorItemCount = document.querySelector('#interior-item-count');
 const interiorHouseName = document.querySelector('#interior-house-name');
+const adminPreviewButton = document.querySelector('#admin-preview-button');
+const adminPreviewBackdrop = document.querySelector('#admin-preview-backdrop');
+const adminPreviewStatus = document.querySelector('#admin-preview-status');
+const stopAdminPreviewButton = document.querySelector('#stop-admin-preview');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
@@ -103,6 +107,8 @@ const EXTERIOR_REWARD_OPTIONS = [
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
 let currentRewardAction = null;
+let adminPreviewActive = false;
+let adminInteriorLayout = {};
 const DECOR_OPTIONS = [
   ['flower','✿','꽃 화분'],['lamp','☀','작은 조명'],['book','▤','책 더미'],['flag','⚑','응원 깃발'],['tree','♟','작은 나무'],['bigtree','♟','큰 나무'],['bench','▰','나무 벤치'],
   ['fountain','⛲','분수'],['birdhouse','⌂','새집'],['mailbox','✉','우편함'],['fence','▥','울타리'],['swing','♧','그네'],['bicycle','◎','자전거'],
@@ -278,6 +284,8 @@ let sharedHome=decodeSharedHome();
 const shortSharedHomeId=sharedHomeIdFromHash();
 if(!sharedHome&&shortSharedHomeId) sharedHome=await loadSharedHome(shortSharedHomeId);
 const isSharedHome=Boolean(sharedHome);
+const adminPreviewAllowed=!isSharedHome&&(['localhost','127.0.0.1'].includes(location.hostname)||new URLSearchParams(location.search).get('admin')==='preview');
+adminPreviewButton.hidden=!adminPreviewAllowed;
 const sharedView=sharedHome?.view||{};
 const sharedRotation=Number.isFinite(sharedView.rotation)?sharedView.rotation:.44;
 const sharedCameraHeight=Number.isFinite(sharedView.cameraHeight)?sharedView.cameraHeight:6.3;
@@ -1126,43 +1134,49 @@ function chooseMilestoneReward(choice){
     showCaptureNotice(`${style.label}으로 바뀌었어요!`,'14일 동안 쌓아온 잘한 일이 집의 새로운 분위기가 되었어요.');
   }
 }
-function isInteriorUnlocked(){ return recordedDayCount()>=INTERIOR_UNLOCK_DAYS; }
+function interiorDayCount(){ return adminPreviewActive?Math.max(...INTERIOR_ITEMS.map(item=>item.unlockDays),INTERIOR_UNLOCK_DAYS):recordedDayCount(); }
+function activeInteriorLayout(){ return adminPreviewActive?adminInteriorLayout:interiorLayout; }
+function isInteriorUnlocked(){ return adminPreviewActive||recordedDayCount()>=INTERIOR_UNLOCK_DAYS; }
 function updateDoorMissionUI(){
   const days=recordedDayCount();
   const progress=Math.min(days,INTERIOR_UNLOCK_DAYS);
   const unlocked=isInteriorUnlocked();
   doorMissionBadge.classList.toggle('unlocked',unlocked);
   doorMissionBadge.querySelector('.door-mission-icon').textContent=unlocked?'🔑':'🔒';
-  doorMissionCopy.textContent=unlocked?'문을 눌러 실내 꾸미기':'서로 다른 날 3번';
-  doorMissionCount.textContent=unlocked?'OPEN':`${progress} / ${INTERIOR_UNLOCK_DAYS}`;
-  doorMissionBadge.setAttribute('aria-label',unlocked?'실내 꾸미기 열기':`서로 다른 날 기록 ${progress}/${INTERIOR_UNLOCK_DAYS}번, 문 열기 미션`);
+  doorMissionCopy.textContent=adminPreviewActive?'관리자 체험 중':unlocked?'문을 눌러 실내 꾸미기':'서로 다른 날 3번';
+  doorMissionCount.textContent=adminPreviewActive?'PREVIEW':unlocked?'OPEN':`${progress} / ${INTERIOR_UNLOCK_DAYS}`;
+  doorMissionBadge.setAttribute('aria-label',adminPreviewActive?'관리자 미리보기로 실내 꾸미기 열기':unlocked?'실내 꾸미기 열기':`서로 다른 날 기록 ${progress}/${INTERIOR_UNLOCK_DAYS}번, 문 열기 미션`);
 }
-function saveInteriorLayout(){ persistLocal(INTERIOR_LAYOUT_KEY,JSON.stringify(interiorLayout)); }
+function saveInteriorLayout(){ if(!adminPreviewActive) persistLocal(INTERIOR_LAYOUT_KEY,JSON.stringify(interiorLayout)); }
 function ensureInteriorLayout(){
+  const layout=activeInteriorLayout();
+  const days=interiorDayCount();
   let changed=false;
-  INTERIOR_ITEMS.filter(item=>recordedDayCount()>=item.unlockDays).forEach(item=>{
-    if(interiorLayout[item.id]) return;
-    interiorLayout[item.id]={x:item.x,y:item.y,placed:true};
+  INTERIOR_ITEMS.filter(item=>days>=item.unlockDays).forEach(item=>{
+    if(layout[item.id]) return;
+    layout[item.id]={x:item.x,y:item.y,placed:true};
     changed=true;
   });
-  if(changed) saveInteriorLayout();
+  if(changed&&!adminPreviewActive) saveInteriorLayout();
 }
 function renderInteriorItems(){
   ensureInteriorLayout();
-  const days=recordedDayCount();
-  interiorItems.innerHTML=INTERIOR_ITEMS.filter(item=>days>=item.unlockDays&&interiorLayout[item.id]?.placed!==false).map(item=>{
-    const saved=interiorLayout[item.id]||item;
+  const days=interiorDayCount();
+  const layout=activeInteriorLayout();
+  interiorItems.innerHTML=INTERIOR_ITEMS.filter(item=>days>=item.unlockDays&&layout[item.id]?.placed!==false).map(item=>{
+    const saved=layout[item.id]||item;
     return `<button class="placed-interior-item type-${item.id}" type="button" data-interior-item="${item.id}" style="left:${saved.x}%;top:${saved.y}%" aria-label="${item.label}, 끌어서 이동">${interiorItemMarkup(item.id)}<span class="placed-item-name">${item.label}</span></button>`;
   }).join('');
 }
 function renderInteriorInventory(){
-  const days=recordedDayCount();
+  const days=interiorDayCount();
+  const layout=activeInteriorLayout();
   const unlocked=INTERIOR_ITEMS.filter(item=>days>=item.unlockDays);
-  interiorItemCount.textContent=`${unlocked.length}개 보유`;
+  interiorItemCount.textContent=adminPreviewActive?`${unlocked.length}개 체험`:`${unlocked.length}개 보유`;
   interiorInventoryList.innerHTML=INTERIOR_ITEMS.map(item=>{
     const available=days>=item.unlockDays;
-    const placed=available&&interiorLayout[item.id]?.placed!==false;
-    const status=available?(placed?'방에 배치됨 · 눌러 보관':'획득 완료 · 눌러 방에 놓기'):`${item.unlockDays}번째 기록 후 공개`;
+    const placed=available&&layout[item.id]?.placed!==false;
+    const status=available?(placed?(adminPreviewActive?'미리 배치됨 · 눌러 보관':'방에 배치됨 · 눌러 보관'):(adminPreviewActive?'체험 보관함 · 눌러 배치':'획득 완료 · 눌러 방에 놓기')):`${item.unlockDays}번째 기록 후 공개`;
     return `<button class="inventory-item-card${available?' unlocked':' locked'}${placed?' placed':''}" type="button" data-inventory-item="${item.id}" ${available?'':'aria-disabled="true"'}><span class="inventory-item-preview">${available?interiorItemMarkup(item.id):'<i class="inventory-question">?</i>'}</span><span><b>${available?item.label:'???'}</b><small>${status}</small></span></button>`;
   }).join('');
 }
@@ -1192,6 +1206,53 @@ function requestInteriorOpen(){
   interiorOpenTimer=setTimeout(openInterior,360);
 }
 
+function createAdminInteriorLayout(){
+  adminInteriorLayout=Object.fromEntries(INTERIOR_ITEMS.map(item=>{
+    const saved=interiorLayout[item.id]||item;
+    return [item.id,{x:saved.x,y:saved.y,placed:true}];
+  }));
+}
+function openAdminPreview(){
+  if(!adminPreviewAllowed) return;
+  adminPreviewStatus.classList.toggle('active',adminPreviewActive);
+  adminPreviewStatus.querySelector('span').textContent=adminPreviewActive?'관리자 체험 중이에요. 실제 기록과 배치에는 저장되지 않아요.':'현재 실제 기록을 기준으로 보고 있어요.';
+  stopAdminPreviewButton.hidden=!adminPreviewActive;
+  adminPreviewBackdrop.classList.add('open');
+  adminPreviewBackdrop.setAttribute('aria-hidden','false');
+}
+function closeAdminPreview(){
+  adminPreviewBackdrop.classList.remove('open');
+  adminPreviewBackdrop.setAttribute('aria-hidden','true');
+}
+function startAdminPreview(mode){
+  if(!adminPreviewAllowed) return;
+  if(!adminPreviewActive) createAdminInteriorLayout();
+  adminPreviewActive=true;
+  adminPreviewButton.classList.add('active');
+  document.body.classList.add('admin-preview-active');
+  closeAdminPreview();
+  updateDoorMissionUI();
+  if(mode==='door'){
+    closeInterior();
+    requestInteriorOpen();
+    showCaptureNotice('관리자 문 열림 체험','잠시 후 실내 화면으로 이어집니다. 실제 기록은 바뀌지 않아요.');
+  }else{
+    openInterior();
+    showCaptureNotice('관리자 아이템 배치 체험','모든 실내 아이템을 자유롭게 움직여 보세요. 체험 배치는 저장되지 않아요.');
+  }
+}
+function stopAdminPreview(){
+  closeInterior();
+  adminPreviewActive=false;
+  adminInteriorLayout={};
+  adminPreviewButton.classList.remove('active');
+  document.body.classList.remove('admin-preview-active');
+  closeAdminPreview();
+  updateDoorMissionUI();
+  renderInteriorInventory();
+  showCaptureNotice('관리자 체험을 끝냈어요','기존 기록과 아이템 배치는 그대로 유지되어 있어요.');
+}
+
 let interiorDragState=null;
 function startInteriorDrag(event){
   const element=event.target.closest('[data-interior-item]');
@@ -1215,13 +1276,14 @@ function moveInteriorItem(event){
   const y=Math.min(88,Math.max(18,((event.clientY-interiorDragState.offsetY-bounds.top)/bounds.height)*100));
   interiorDragState.element.style.left=`${x}%`;
   interiorDragState.element.style.top=`${y}%`;
-  interiorLayout[interiorDragState.id]={...(interiorLayout[interiorDragState.id]||{}),x,y,placed:true};
+  const layout=activeInteriorLayout();
+  layout[interiorDragState.id]={...(layout[interiorDragState.id]||{}),x,y,placed:true};
 }
 function finishInteriorDrag(){
   if(!interiorDragState) return;
   interiorDragState.element.classList.remove('dragging');
   interiorDragState=null;
-  saveInteriorLayout();
+  if(!adminPreviewActive) saveInteriorLayout();
 }
 
 function renderRecords(){
@@ -1546,7 +1608,7 @@ interiorInventoryList.addEventListener('click',event=>{
   if(!button) return;
   const item=INTERIOR_ITEMS.find(candidate=>candidate.id===button.dataset.inventoryItem);
   if(!item) return;
-  if(recordedDayCount()<item.unlockDays){
+  if(interiorDayCount()<item.unlockDays){
     showCaptureNotice('아직 비공개인 아이템이에요',`${item.unlockDays}번째 기록을 남기면 이름과 모습이 공개돼요.`);
     return;
   }
@@ -1554,8 +1616,9 @@ interiorInventoryList.addEventListener('click',event=>{
     showCaptureNotice('공유받은 집이에요','실내 아이템은 원래 주인만 움직일 수 있어요.');
     return;
   }
-  const current=interiorLayout[item.id]||{x:item.x,y:item.y,placed:false};
-  interiorLayout[item.id]={...current,placed:current.placed===false};
+  const layout=activeInteriorLayout();
+  const current=layout[item.id]||{x:item.x,y:item.y,placed:false};
+  layout[item.id]={...current,placed:current.placed===false};
   saveInteriorLayout();
   renderInteriorItems();
   renderInteriorInventory();
@@ -1592,3 +1655,13 @@ document.querySelector('#close-guide').addEventListener('click',closeGuide);
 document.querySelector('#finish-guide').addEventListener('click',closeGuide);
 guideBackdrop.addEventListener('click',event=>{ if(event.target===guideBackdrop) closeGuide(); });
 if(!localStorage.getItem(GUIDE_SEEN_KEY)) setTimeout(openGuide,550);
+
+adminPreviewButton.addEventListener('click',openAdminPreview);
+document.querySelector('#close-admin-preview').addEventListener('click',closeAdminPreview);
+adminPreviewBackdrop.addEventListener('click',event=>{ if(event.target===adminPreviewBackdrop) closeAdminPreview(); });
+adminPreviewBackdrop.addEventListener('click',event=>{
+  const action=event.target.closest('[data-admin-preview]');
+  if(action) startAdminPreview(action.dataset.adminPreview);
+});
+stopAdminPreviewButton.addEventListener('click',stopAdminPreview);
+document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&adminPreviewBackdrop.classList.contains('open')) closeAdminPreview(); });

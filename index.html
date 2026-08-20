@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=14" />
+    <link rel="stylesheet" href="./styles.css?v=15" />
   </head>
   <body>
     <main class="app-shell">
@@ -236,6 +236,25 @@
       </section>
     </div>
 
+    <button class="admin-preview-button" id="admin-preview-button" type="button" aria-label="관리자 미리보기" data-tooltip="관리자 미리보기" hidden>
+      <span class="admin-key-icon" aria-hidden="true"></span>
+    </button>
+
+    <div class="entry-backdrop admin-preview-backdrop" id="admin-preview-backdrop" aria-hidden="true">
+      <section class="admin-preview-modal" role="dialog" aria-modal="true" aria-labelledby="admin-preview-title">
+        <button class="close-modal" id="close-admin-preview" aria-label="닫기">×</button>
+        <p class="eyebrow"><span></span> ADMIN PREVIEW</p>
+        <h2 id="admin-preview-title">날짜와 관계없이<br /><em>미리 체험하기</em></h2>
+        <p class="admin-preview-description">실제 기록과 아이템 배치는 바뀌지 않아요. 아래 기능으로 사용자에게 보일 화면을 바로 확인해 보세요.</p>
+        <p class="admin-preview-status" id="admin-preview-status"><i></i><span>현재 실제 기록을 기준으로 보고 있어요.</span></p>
+        <div class="admin-preview-actions">
+          <button type="button" data-admin-preview="door"><span aria-hidden="true">🚪</span><b>문 열림 체험</b><small>문이 열리고 실내로 들어가는 흐름 확인</small></button>
+          <button type="button" data-admin-preview="items"><span aria-hidden="true">🪑</span><b>아이템 배치 체험</b><small>실내 아이템을 모두 꺼내 직접 이동하기</small></button>
+        </div>
+        <button class="admin-preview-stop" id="stop-admin-preview" type="button" hidden>관리자 체험 끝내기</button>
+      </section>
+    </div>
+
     <section class="interior-view" id="interior-view" aria-hidden="true" aria-labelledby="interior-title">
       <header class="interior-header">
         <button class="interior-back" id="close-interior" type="button"><span aria-hidden="true">←</span> 마당으로</button>
@@ -297,6 +316,6 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=100"></script>
+    <script type="module" src="./main.js?v=101"></script>
   </body>
 </html>

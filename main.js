@@ -492,13 +492,15 @@ addInteriorGardenTree(-.52,-7.08,.80);
 
 // The entrance is a real moving door. Opening it reveals the same warm garden palette outside.
 const interiorEntranceDoorPivot=new THREE.Group();
-interiorEntranceDoorPivot.position.set(-2.99,.13,-3.20);
+// Put the hinge on the inner edge of the frame and keep the whole door slab
+// inside the frame depth when it is closed.
+interiorEntranceDoorPivot.position.set(-2.925,.13,-3.31);
 interiorWorld.add(interiorEntranceDoorPivot);
-const interiorEntranceDoor=interiorBox(1.05,2.35,.14,palette.wood,new THREE.Vector3(.535,1.18,0),interiorEntranceDoorPivot);
+const interiorEntranceDoor=interiorBox(.99,2.35,.14,palette.wood,new THREE.Vector3(.495,1.18,0),interiorEntranceDoorPivot);
 interiorEntranceDoor.userData.isInteriorEntranceDoor=true;
-interiorBox(.70,.06,.04,palette.trim,new THREE.Vector3(.535,1.62,.09),interiorEntranceDoorPivot);
-interiorBox(.70,.06,.04,palette.trim,new THREE.Vector3(.535,.70,.09),interiorEntranceDoorPivot);
-interiorSphere(.075,0xf5c84b,new THREE.Vector3(.86,1.18,.11),interiorEntranceDoorPivot);
+interiorBox(.70,.06,.04,palette.trim,new THREE.Vector3(.495,1.62,.09),interiorEntranceDoorPivot);
+interiorBox(.70,.06,.04,palette.trim,new THREE.Vector3(.495,.70,.09),interiorEntranceDoorPivot);
+interiorSphere(.075,0xf5c84b,new THREE.Vector3(.82,1.18,.11),interiorEntranceDoorPivot);
 let interiorEntranceDoorOpen=false;
 let interiorEntranceDoorTarget=0;
 const INTERIOR_ENTRANCE_OPEN_ANGLE=Math.PI*.48;

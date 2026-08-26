@@ -15,6 +15,8 @@ const rewardBackdrop = document.querySelector('#reward-backdrop');
 const rewardModalTitle = document.querySelector('#reward-modal-title');
 const rewardModalDescription = document.querySelector('#reward-modal-description');
 const rewardChoiceList = document.querySelector('#reward-choice-list');
+const rewardHouseGoal = document.querySelector('#reward-house-goal');
+const rewardHouseGoalInput = document.querySelector('#reward-house-goal-input');
 const todayPreview = document.querySelector('#today-preview');
 const previewCount = document.querySelector('#preview-count');
 const toast = document.querySelector('#toast');
@@ -138,11 +140,10 @@ const REWARD_MILESTONES = [
   {days:1,title:'첫 집 꾸미기 아이템',description:'기록을 남기자마자 장식 하나를 받아요.'},
   {days:3,title:'집 문과 실내 공개',description:'문을 열고 따뜻한 원룸을 직접 꾸며요.'},
   {days:7,title:'희귀 아이템 선택',description:'특별한 장식 3개 중 하나를 골라요.',action:'rare'},
-  {days:14,title:'외관 변경권',description:'지붕·창문·현관의 분위기를 바꿔요.',action:'exterior'},
-  {days:30,title:'방 또는 집 업그레이드',description:'방을 넓히거나 집의 형태를 발전시켜요.'},
-  {days:60,title:'핵심 장기 목표',description:'2층 증축 또는 특별한 새 집이 열려요.',longGoal:true},
-  {days:90,title:'계절별 특별 공간',description:'계절 별장 또는 특별 정원을 만나요.'}
+  {days:14,title:'외관 변경권',description:'지붕·창문·현관의 분위기를 바꿔요.',action:'exterior'}
 ];
+const VILLAGE_HOUSE_INTERVAL=30;
+const ADMIN_PREVIEW_HOUSE_COUNT=3;
 const RARE_REWARD_OPTIONS = [
   {id:'lantern',label:'별빛 랜턴',description:'저녁 정원을 밝혀주는 조명'},
   {id:'topiary',label:'하트 토피어리',description:'둥글고 포근한 초록 장식'},
@@ -152,6 +153,22 @@ const EXTERIOR_REWARD_OPTIONS = [
   {id:'sunset',label:'살구빛 외관',description:'지금의 따뜻한 색감을 깊게',roof:0xeb7651,door:0x99623e,window:0x93c7d0},
   {id:'berry',label:'포도빛 외관',description:'차분한 포도와 라일락 색감',roof:0x9b6b88,door:0x70506b,window:0x91bdc6},
   {id:'forest',label:'숲빛 외관',description:'초록 지붕과 호두색 현관',roof:0x62835c,door:0x75513b,window:0x80b7b2}
+];
+const HOME_UPGRADE_OPTIONS = [
+  {id:'sunroom',label:'햇살 온실집',description:'식물을 돌보는 목표를 담은 투명한 새 집',preview:'sunroom',icon:'☀',items:['leafplant','watering','flowerbed','sunflower','topiary','greenhouse']},
+  {id:'porch',label:'작업실 오두막',description:'만들고 배우는 목표를 위한 포치 달린 집',preview:'porch',icon:'⌂',items:['bench','birdhouse','fence','bicycle','chime','grapepergola']},
+  {id:'reading-bay',label:'둥근 책방집',description:'읽고 기록하는 목표를 품은 둥근 집',preview:'reading-bay',icon:'▤',items:['book','lamp','lantern','mailbox','basket','secretmailbox']}
+];
+const LONG_GOAL_OPTIONS = [
+  {id:'second-floor',label:'2층 서재집',description:'오래 이어갈 공부와 성장 목표를 위한 집',preview:'second-floor',icon:'↟'},
+  {id:'grape-tower',label:'포도빛 전망집',description:'멀리 내다보는 큰 꿈을 상징하는 둥근 집',preview:'grape-tower',icon:'●'},
+  {id:'garden-cottage',label:'다정한 손님집',description:'관계와 새로운 만남을 위한 작은 집',preview:'garden-cottage',icon:'⌂'}
+];
+const SEASONAL_SPACE_OPTIONS = [
+  {id:'spring-garden',label:'봄꽃 온실',description:'꽃과 새싹이 가득한 투명한 계절방',preview:'spring-garden',icon:'✿'},
+  {id:'summer-deck',label:'여름 물빛 데크',description:'작은 연못과 그늘이 이어진 시원한 쉼터',preview:'summer-deck',icon:'≈'},
+  {id:'autumn-tea',label:'가을 수확 찻자리',description:'단풍과 호박 옆에서 차를 마시는 공간',preview:'autumn-tea',icon:'●'},
+  {id:'winter-garden',label:'겨울 별빛 정원',description:'눈 내린 나무와 따뜻한 등이 빛나는 정원',preview:'winter-garden',icon:'✦'}
 ];
 let selectedDecor = 'flower';
 let editingMemoryDate = null;
@@ -164,7 +181,7 @@ let selectedFutureLetterId = '';
 let futureLetterComposeSeed = null;
 let adminInteriorLayout = {};
 let adminInteriorStyle = {};
-let adminPreviewRewards = {rareItem:'',exteriorStyle:''};
+let adminPreviewRewards = {rareItem:'',exteriorStyle:'',villageHouses:[]};
 let adminDecorLayoutSnapshot = null;
 const DECOR_OPTIONS = [
   ['flower','✿','꽃 화분'],['lamp','☀','작은 조명'],['book','▤','책 더미'],['flag','⚑','응원 깃발'],['tree','♟','작은 나무'],['bigtree','♟','큰 나무'],['bench','▰','나무 벤치'],
@@ -172,7 +189,7 @@ const DECOR_OPTIONS = [
   ['stone','●','정원 돌'],['mushroom','♣','버섯'],['birdbath','◉','새 목욕탕'],['lantern','◈','랜턴'],['leafplant','☘','잎 화분'],['watering','♒','물뿌리개'],
   ['flowerbed','✽','꽃밭'],['sunflower','✺','해바라기'],['gnome','♟','정원 요정'],['basket','▱','피크닉 바구니'],['hammock','⌒','해먹'],['arch','∩','정원 아치'],
   ['chime','♬','바람 종'],['pumpkin','●','호박'],['cat','⌁','고양이'],['dog','♧','강아지'],['stepping','◌','디딤돌'],['topiary','✦','토피어리'],
-  ['rooflight','✦','지붕 조명']
+  ['rooflight','✦','지붕 조명'],['greenhouse','⌂','작은 온실'],['grapepergola','♧','포도나무 그늘'],['secretmailbox','✉','비밀 우체통']
 ];
 const SHARE_DECOR_TYPES = DECOR_OPTIONS.map(([type])=>type);
 const DECOR_INFO = Object.fromEntries(DECOR_OPTIONS.map(([type,icon,label])=>[type,{icon,label}]));
@@ -182,12 +199,10 @@ const DECOR_CATEGORIES=[
   ['야외 소품',['lamp','book','flag','birdhouse','mailbox','bicycle','lantern','basket','chime']],
   ['집 · 친구',['rooflight','gnome','cat','dog']]
 ];
+const FIRST_HOUSE_DECOR_TYPES=new Set(['flower','tree','bigtree','flag','fountain','stone','mushroom','gnome','cat','dog','stepping','rooflight']);
 const FUTURE_DECOR_OPTIONS = [
-  {id:'greenhouse',label:'작은 온실'},
   {id:'duckpond',label:'연못과 오리'},
   {id:'lightarch',label:'꽃 아치 조명'},
-  {id:'grapepergola',label:'포도나무 그늘'},
-  {id:'secretmailbox',label:'비밀 우체통'},
   {id:'newfriend',label:'새로운 친구'}
 ];
 const INTERIOR_ROOMS = [
@@ -302,15 +317,19 @@ function interiorItemMarkup(type){
   if(type==='sleep-lamp') return '<span class="interior-item-art art-sleep-lamp"><i></i><b></b><em></em></span>';
   return '<span class="interior-item-art art-terrace-planter"><i></i><i></i><b></b></span>';
 }
+function villageHouseEntries(rewardState=adminPreviewActive?adminPreviewRewards:milestoneRewards){ return Array.isArray(rewardState?.villageHouses)?rewardState.villageHouses.filter(Boolean):[]; }
+function decorOptionButton(type){ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }
 function renderDecorOptions(){
-  const available=DECOR_CATEGORIES.map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(type=>{ const {label}=DECOR_INFO[type]; return `<button class="decor-option${type===selectedDecor?' selected':''}" data-decor="${type}" type="button"><img class="decor-option-image" src="${decorThumbnail(type)}" alt="" aria-hidden="true" /><span class="decor-option-label">${label}</span></button>`; }).join('')}</div></section>`).join('');
+  const baseSections=DECOR_CATEGORIES.map(([category,types])=>[category,types.filter(type=>FIRST_HOUSE_DECOR_TYPES.has(type))]).filter(([,types])=>types.length);
+  const unlockedStyles=adminPreviewActive?HOME_UPGRADE_OPTIONS:HOME_UPGRADE_OPTIONS.filter(option=>villageHouseEntries().some(house=>house.styleId===option.id));
+  const goalSections=unlockedStyles.map(option=>[`${option.icon} ${option.label} 전용`,option.items]);
+  const available=[...baseSections,...goalSections].map(([category,types])=>`<section class="decor-category" aria-label="${category}"><h3>${category}</h3><div class="decor-category-grid">${types.map(decorOptionButton).join('')}</div></section>`).join('');
   const futureCards=FUTURE_DECOR_OPTIONS.map(option=>adminPreviewActive
     ? `<button class="decor-option admin-future-decor" data-admin-future="${option.id}" type="button"><img class="decor-option-image" src="${decorThumbnail(option.id)}" alt="" aria-hidden="true" /><span class="decor-option-label">${option.label}</span><small>눌러서 미리 배치</small></button>`
     : `<article class="decor-option locked-decor" aria-label="${option.label}, 추후 공개"><span class="locked-decor-image">?</span><span class="decor-option-label">${option.label}</span><small>COMING SOON</small></article>`).join('');
   const future=`<section class="decor-category future-decor-category" aria-label="곧 공개될 장식"><h3>곧 만날 장식 <span>${adminPreviewActive?'관리자 체험 · 모두 공개':'아직 비공개 · 추후 공개'}</span></h3><div class="decor-category-grid">${futureCards}</div></section>`;
   decorOptions.innerHTML=available+future;
 }
-renderDecorOptions();
 function placeAdminFutureDecoration(type){
   if(!adminPreviewActive) return;
   const option=FUTURE_DECOR_OPTIONS.find(candidate=>candidate.id===type);
@@ -550,7 +569,12 @@ function loadMilestoneRewards(){
   try { return JSON.parse(localStorage.getItem(MILESTONE_REWARDS_KEY)||'{}')||{}; }
   catch { return {}; }
 }
-let milestoneRewards=sharedHome?.milestoneRewards??loadMilestoneRewards();
+function normalizeMilestoneRewards(value){
+  const source=value&&typeof value==='object'?value:{};
+  const houses=Array.isArray(source.villageHouses)?source.villageHouses.filter(house=>house&&Number.isInteger(house.cycle)&&house.cycle>0&&HOME_UPGRADE_OPTIONS.some(option=>option.id===house.styleId)).map(house=>({cycle:house.cycle,styleId:house.styleId,goal:typeof house.goal==='string'?house.goal.slice(0,24):'',createdAt:house.createdAt||new Date().toISOString()})):[];
+  return {...source,villageHouses:[...new Map(houses.map(house=>[house.cycle,house])).values()].sort((a,b)=>a.cycle-b.cycle)};
+}
+let milestoneRewards=normalizeMilestoneRewards(sharedHome?.milestoneRewards??loadMilestoneRewards());
 function loadReminderSettings(){
   let saved={};
   try { saved=JSON.parse(localStorage.getItem(REMINDER_STORAGE_KEY)||'{}')||{}; } catch {}
@@ -1062,6 +1086,196 @@ function applyExteriorReward(){
   windowAwnings.forEach(awning=>awning.material.color.setHex(style.roof));
 }
 applyExteriorReward();
+
+// Milestone structures are made only from Three.js geometry, so every reward is
+// visible immediately without paid assets or third-party image licenses.
+const milestoneStructureGroups={};
+function milestoneGroup(id){
+  const group=new THREE.Group();
+  group.visible=false;
+  group.userData.milestoneStructure=id;
+  world.add(group);
+  milestoneStructureGroups[id]=group;
+  return group;
+}
+function addGlassPane(width,height,position,parent,color=0x9fd2d1){
+  const pane=box(width,height,.055,color,position,parent);
+  pane.material.transparent=true;
+  pane.material.opacity=.72;
+  return pane;
+}
+
+const sunroomReward=milestoneGroup('sunroom');
+sunroomReward.position.set(0,0,3.2);
+box(1.48,.22,2.7,palette.trim,new THREE.Vector3(3.18,.19,-.18),sunroomReward);
+for(const z of [-1.12,-.34,.44]) addGlassPane(1.22,.88,new THREE.Vector3(3.18,1.12,z),sunroomReward);
+for(const z of [-1.15,1.02]) box(1.48,.09,.12,palette.wood,new THREE.Vector3(3.18,1.58,z),sunroomReward);
+for(const x of [2.5,3.86]) box(.10,1.78,.10,palette.wood,new THREE.Vector3(x,.92,-.18),sunroomReward);
+const sunroomRoof=mesh(new THREE.BoxGeometry(1.58,.10,2.85),mat(0xf2c765),new THREE.Vector3(3.18,1.84,-.18),sunroomReward); sunroomRoof.rotation.z=-.10;
+for(const z of [-.65,.15,.72]){ cylinder(.12,.15,.18,palette.pot,new THREE.Vector3(3.42,.31,z),sunroomReward); sphere(.18,palette.leaf,new THREE.Vector3(3.42,.55,z),sunroomReward); }
+box(.48,.86,.07,palette.wood,new THREE.Vector3(3.18,.62,1.20),sunroomReward);
+
+const porchReward=milestoneGroup('porch');
+porchReward.position.set(3.2,0,.6);
+box(2.18,1.66,1.72,0xffedc9,new THREE.Vector3(0,1.03,2.16),porchReward);
+box(2.25,.17,1.05,0xd7a55f,new THREE.Vector3(0,.25,2.43),porchReward);
+for(const x of [-.95,.95]) box(.11,2.05,.11,palette.wood,new THREE.Vector3(x,1.22,2.75),porchReward);
+const porchRoof=box(2.62,.14,1.34,0xe99a42,new THREE.Vector3(0,2.27,2.48),porchReward); porchRoof.rotation.x=-.10;
+box(1.05,.38,.32,0x9b6844,new THREE.Vector3(.55,.48,2.67),porchReward);
+for(const x of [.13,.97]) box(.08,.38,.08,palette.dark,new THREE.Vector3(x,.24,2.67),porchReward);
+for(const x of [-.88,.88]){ cylinder(.10,.13,.20,palette.pot,new THREE.Vector3(x,.33,2.35),porchReward); sphere(.17,0x668d52,new THREE.Vector3(x,.58,2.35),porchReward); }
+
+const readingBayReward=milestoneGroup('reading-bay');
+readingBayReward.position.set(6.1,0,2.6);
+const bayBase=cylinder(.72,.78,.27,palette.trim,new THREE.Vector3(-2.87,.22,.38),readingBayReward,24);
+const bayBody=cylinder(.68,.68,1.55,palette.wall,new THREE.Vector3(-2.87,1.08,.38),readingBayReward,24);
+for(const z of [-.10,.38,.86]) addGlassPane(.08,.85,new THREE.Vector3(-3.68,1.18,z),readingBayReward);
+const bayRoof=mesh(new THREE.ConeGeometry(.96,.72,16),mat(palette.roof),new THREE.Vector3(-2.87,2.02,.38),readingBayReward);
+box(.62,.10,.25,0x9b6844,new THREE.Vector3(-3.60,.55,.38),readingBayReward);
+box(.42,.82,.07,palette.wood,new THREE.Vector3(-2.87,.55,1.08),readingBayReward);
+
+const secondFloorReward=milestoneGroup('second-floor');
+secondFloorReward.position.set(-3.2,-2.9,3.0);
+box(1.92,1.34,1.48,0xffedc9,new THREE.Vector3(.18,3.48,.08),secondFloorReward);
+box(1.78,1.38,1.35,palette.wall,new THREE.Vector3(.18,4.35,.08),secondFloorReward);
+addGlassPane(.72,.62,new THREE.Vector3(.18,4.42,.78),secondFloorReward);
+for(const x of [-.27,.63]) box(.06,.77,.07,palette.cream,new THREE.Vector3(x,4.42,.82),secondFloorReward);
+const secondRoof=mesh(new THREE.ConeGeometry(1.38,1.05,4),mat(0x9b718e),new THREE.Vector3(.18,5.55,.08),secondFloorReward); secondRoof.rotation.y=Math.PI/4;
+box(.42,.16,.28,palette.wood,new THREE.Vector3(.18,3.78,.80),secondFloorReward);
+
+const grapeTowerReward=milestoneGroup('grape-tower');
+grapeTowerReward.position.set(0,0,4.3);
+cylinder(.75,.86,3.18,0xf1dfbd,new THREE.Vector3(-3.35,1.62,-1.18),grapeTowerReward,20);
+for(const y of [1.22,2.15]) addGlassPane(.68,.54,new THREE.Vector3(-3.35,y,-.42),grapeTowerReward,0xa7cbd0);
+const grapeTowerRoof=mesh(new THREE.ConeGeometry(1.04,1.42,20),mat(0x8f6684),new THREE.Vector3(-3.35,3.87,-1.18),grapeTowerReward);
+cylinder(.05,.05,.58,0x6b4c39,new THREE.Vector3(-3.35,4.68,-1.18),grapeTowerReward,10);
+for(const offset of [-.20,0,.20]) sphere(.09,0x9b718e,new THREE.Vector3(-3.35+offset,4.98-Math.abs(offset)*.6,-1.18),grapeTowerReward);
+
+const gardenCottageReward=milestoneGroup('garden-cottage');
+gardenCottageReward.position.set(-6.6,0,4.6);
+box(1.65,1.52,1.58,0xffedc9,new THREE.Vector3(3.45,.86,-1.48),gardenCottageReward);
+const cottageRoof=mesh(new THREE.ConeGeometry(1.32,1.08,4),mat(0x6f8f62),new THREE.Vector3(3.45,2.15,-1.48),gardenCottageReward); cottageRoof.rotation.y=Math.PI/4;
+box(.48,.84,.08,0x9b6844,new THREE.Vector3(3.45,.57,-.66),gardenCottageReward);
+for(const x of [2.95,3.95]) addGlassPane(.38,.48,new THREE.Vector3(x,1.12,-.66),gardenCottageReward);
+for(const x of [3.18,3.72]) sphere(.13,0xe98875,new THREE.Vector3(x,.28,-.55),gardenCottageReward);
+
+const springGardenReward=milestoneGroup('spring-garden');
+springGardenReward.position.set(-3.38,0,.8);
+box(1.78,.16,1.62,palette.trim,new THREE.Vector3(3.38,.18,3.18),springGardenReward);
+for(const x of [2.58,4.18]) for(const z of [2.46,3.90]) box(.07,1.55,.07,palette.wood,new THREE.Vector3(x,.96,z),springGardenReward);
+const springRoof=mesh(new THREE.ConeGeometry(1.36,.72,4),mat(0xf4d693),new THREE.Vector3(3.38,2.02,3.18),springGardenReward); springRoof.rotation.y=Math.PI/4; springRoof.material.transparent=true; springRoof.material.opacity=.82;
+for(const [x,z,c] of [[2.88,2.85,0xf18b9d],[3.36,3.52,0xf4c44e],[3.86,2.92,0xa58bbc]]){ cylinder(.025,.035,.30,0x5f8c50,new THREE.Vector3(x,.40,z),springGardenReward,8); sphere(.13,c,new THREE.Vector3(x,.62,z),springGardenReward); }
+
+const summerDeckReward=milestoneGroup('summer-deck');
+summerDeckReward.position.set(3.33,0,.8);
+const pond=cylinder(1.12,1.22,.15,0x76bfd0,new THREE.Vector3(-3.33,.10,3.20),summerDeckReward,30); pond.scale.z=.72;
+for(let i=0;i<7;i++){ const angle=i/7*Math.PI*2; const stone=sphere(.23,palette.path,new THREE.Vector3(-3.33+Math.cos(angle)*1.17,.13,3.20+Math.sin(angle)*.86),summerDeckReward); stone.scale.y=.28; }
+box(1.30,.15,.78,0xc18a52,new THREE.Vector3(-2.55,.28,2.62),summerDeckReward);
+for(const x of [-3.02,-2.08]) box(.07,1.62,.07,palette.wood,new THREE.Vector3(x,1.10,2.50),summerDeckReward);
+const shade=mesh(new THREE.ConeGeometry(.88,.42,20),mat(0xf3b45b),new THREE.Vector3(-2.55,1.95,2.50),summerDeckReward); shade.rotation.z=Math.PI;
+
+const autumnTeaReward=milestoneGroup('autumn-tea');
+autumnTeaReward.position.set(-3.35,0,.8);
+for(const x of [2.65,4.05]){ cylinder(.10,.13,1.16,0x7c573d,new THREE.Vector3(x,.64,3.18),autumnTeaReward,12); const crown=sphere(.66,x<3?0xd9863d:0xb96b43,new THREE.Vector3(x,1.55,3.18),autumnTeaReward); crown.scale.set(1,.82,.86); }
+const teaTable=cylinder(.55,.60,.18,0x9b6844,new THREE.Vector3(3.35,.62,3.12),autumnTeaReward,20);
+cylinder(.09,.11,.55,0x795039,new THREE.Vector3(3.35,.32,3.12),autumnTeaReward,12);
+for(const z of [2.46,3.82]){ const pumpkin=sphere(.22,0xe58b2e,new THREE.Vector3(3.35,.24,z),autumnTeaReward); pumpkin.scale.y=.78; }
+
+const winterGardenReward=milestoneGroup('winter-garden');
+winterGardenReward.position.set(3.2,0,.8);
+for(const x of [-4.02,-3.20,-2.38]){ cylinder(.07,.10,.72,0x795d4b,new THREE.Vector3(x,.39,3.24),winterGardenReward,10); for(const y of [.72,1.05,1.36]){ const snowTree=mesh(new THREE.ConeGeometry(.45-(y-.72)*.16,.62,12),mat(0xe7f2e5),new THREE.Vector3(x,y,3.24),winterGardenReward); snowTree.rotation.y=.2; } }
+for(const x of [-3.72,-2.68]){ cylinder(.06,.08,.72,palette.wood,new THREE.Vector3(x,.48,2.53),winterGardenReward,10); const lantern=sphere(.16,0xffd56f,new THREE.Vector3(x,.93,2.53),winterGardenReward); lantern.material.emissive=new THREE.Color(0xffb442); lantern.material.emissiveIntensity=.85; }
+for(const [x,z] of [[-3.85,3.88],[-3.20,3.68],[-2.55,3.92]]){ const snow=sphere(.28,0xf4f7ed,new THREE.Vector3(x,.14,z),winterGardenReward); snow.scale.y=.22; }
+
+function activeMilestoneRewardState(){ return adminPreviewActive?adminPreviewRewards:milestoneRewards; }
+function applyMilestoneStructures(){
+  Object.values(milestoneStructureGroups).forEach(group=>{ group.visible=false; });
+  const rewardState=activeMilestoneRewardState();
+  [rewardState.homeUpgrade,rewardState.longGoal,rewardState.seasonalSpace].filter(Boolean).forEach(id=>{
+    if(milestoneStructureGroups[id]) milestoneStructureGroups[id].visible=true;
+  });
+}
+applyMilestoneStructures();
+Object.values(milestoneStructureGroups).forEach(group=>{
+  clearThreeGroup(group);
+  world.remove(group);
+});
+
+const villageHousesGroup=new THREE.Group();
+world.add(villageHousesGroup);
+const VILLAGE_VISIBLE_HOUSE_LIMIT=8;
+const VILLAGE_PLOTS=[
+  [7.0,1.80,-.20],[-7.0,1.80,.20],[6.8,-4.70,.28],[-6.8,-4.70,-.28],
+  [6.7,6.00,-.55],[-6.7,6.00,.55],[.15,-8.10,.08],[-.15,8.70,Math.PI]
+];
+function createVillagePath(x,z,parent){
+  for(let index=0;index<4;index+=1){
+    const ratio=.50+index*.115;
+    const step=sphere(.38,palette.path,new THREE.Vector3(x*ratio,.07,z*ratio),parent);
+    step.scale.set(1.10,.22,.78);
+    step.rotation.y=Math.atan2(x,z)+(index%2?.15:-.12);
+  }
+}
+function createVillageHouseModel(entry,index){
+  const style=HOME_UPGRADE_OPTIONS.find(option=>option.id===entry.styleId)||HOME_UPGRADE_OPTIONS[0];
+  const group=new THREE.Group();
+  group.userData.villageHouse=entry;
+  const plot=VILLAGE_PLOTS[index]||VILLAGE_PLOTS[index%VILLAGE_PLOTS.length];
+  group.position.set(plot[0],0,plot[1]);
+  group.rotation.y=plot[2];
+  const roofColors=[0xe98555,0x8e7598,0x6f8d69,0xd39a45];
+  const roofColor=roofColors[(entry.cycle-1)%roofColors.length];
+  if(style.id==='sunroom'){
+    box(3.55,.22,2.90,palette.trim,new THREE.Vector3(0,.15,0),group);
+    const glassMaterial=new THREE.MeshStandardMaterial({color:0xaed7cf,roughness:.22,transparent:true,opacity:.64});
+    const glass=mesh(new THREE.BoxGeometry(3.35,2.45,2.70),glassMaterial,new THREE.Vector3(0,1.42,0),group); glass.castShadow=false;
+    for(const x of [-1.64,0,1.64]) for(const z of [-1.34,1.34]) box(.09,2.52,.09,palette.cream,new THREE.Vector3(x,1.42,z),group);
+    for(const x of [-1.64,1.64]) for(const z of [-1.34,0,1.34]) box(.09,2.52,.09,palette.cream,new THREE.Vector3(x,1.42,z),group);
+    const roof=mesh(new THREE.ConeGeometry(2.58,1.38,4),mat(roofColor),new THREE.Vector3(0,3.28,0),group); roof.rotation.y=Math.PI/4;
+    box(.66,1.25,.10,palette.wood,new THREE.Vector3(0,.78,1.40),group);
+    cylinder(.24,.31,.42,palette.pot,new THREE.Vector3(1.34,.25,1.68),group); sphere(.34,palette.leaf,new THREE.Vector3(1.34,.69,1.68),group);
+    const can=cylinder(.20,.20,.38,0x79a9b3,new THREE.Vector3(-1.35,.25,1.70),group); can.rotation.z=Math.PI/2;
+  }else if(style.id==='reading-bay'){
+    cylinder(1.92,2.03,.30,palette.trim,new THREE.Vector3(0,.15,0),group,28);
+    cylinder(1.82,1.82,2.55,0xffedc9,new THREE.Vector3(0,1.48,0),group,28);
+    const roof=mesh(new THREE.ConeGeometry(2.34,1.52,28),mat(roofColor),new THREE.Vector3(0,3.50,0),group);
+    box(.68,1.25,.10,palette.wood,new THREE.Vector3(0,.77,1.84),group);
+    addGlassPane(1.68,1.10,new THREE.Vector3(-.86,1.72,1.73),group,0x9fcbd0);
+    for(const x of [-1.48,-.98,-.48]) box(.38,.15,.32,0x8d6b8d,new THREE.Vector3(x,.22,2.02),group);
+    cylinder(.05,.06,.72,palette.dark,new THREE.Vector3(1.35,.40,1.88),group,10); sphere(.20,0xffdb75,new THREE.Vector3(1.35,.88,1.88),group);
+  }else{
+    box(3.85,.26,3.14,palette.trim,new THREE.Vector3(0,.16,0),group);
+    box(3.65,2.55,2.96,0xffedc9,new THREE.Vector3(0,1.50,0),group);
+    const roof=mesh(new THREE.ConeGeometry(2.65,1.58,4),mat(roofColor),new THREE.Vector3(0,3.52,0),group); roof.rotation.y=Math.PI/4;
+    box(.70,1.30,.10,palette.wood,new THREE.Vector3(0,.80,1.53),group);
+    for(const x of [-1.15,1.15]) addGlassPane(.72,.80,new THREE.Vector3(x,1.72,1.54),group,0x91bdc6);
+    box(3.95,.18,1.02,0xbd8953,new THREE.Vector3(0,.23,2.03),group);
+    for(const x of [-1.63,1.63]) box(.10,1.70,.10,palette.wood,new THREE.Vector3(x,1.08,2.32),group);
+    box(3.92,.14,1.16,roofColor,new THREE.Vector3(0,1.93,2.12),group);
+    box(1.18,.34,.38,0x9b6844,new THREE.Vector3(1.06,.42,2.43),group);
+    box(.62,.42,.46,0x7b5a3f,new THREE.Vector3(-1.12,.29,2.42),group);
+  }
+  const plaque=box(1.20,.34,.08,0xeea18f,new THREE.Vector3(0,1.82,style.id==='reading-bay'?1.84:1.59),group);
+  plaque.userData.goal=entry.goal||`${entry.cycle}번째 목표`;
+  group.scale.setScalar(style.id==='sunroom'?1.12:style.id==='reading-bay'?1.0:1.05);
+  return group;
+}
+function rebuildVillageHouses(){
+  clearThreeGroup(villageHousesGroup);
+  const houses=villageHouseEntries().slice(0,VILLAGE_VISIBLE_HOUSE_LIMIT);
+  houses.forEach((entry,index)=>{
+    const house=createVillageHouseModel(entry,index);
+    villageHousesGroup.add(house);
+    createVillagePath(house.position.x,house.position.z,villageHousesGroup);
+  });
+  const terrainScale=houses.length?1.55+Math.max(0,houses.length-2)*.075:1;
+  base.scale.set(terrainScale,1,terrainScale);
+  soil.scale.set(terrainScale,1,terrainScale);
+  camera.position.z=13.6+Math.sqrt(Math.min(houses.length,8))*4.20;
+  camera.position.x=3.6;
+  target.x=houses.length===1?1.30:0;
+}
+rebuildVillageHouses();
 
 // A heart-shaped nameplate, rendered as part of the house facade.
 const nameplateCanvas = document.createElement('canvas');
@@ -1788,13 +2002,37 @@ function milestoneRewardClaimed(action){
   const rewardState=adminPreviewActive?adminPreviewRewards:milestoneRewards;
   if(action==='rare') return Boolean(rewardState.rareItem);
   if(action==='exterior') return Boolean(rewardState.exteriorStyle);
+  if(action?.startsWith('villageHouse:')){
+    const cycle=Number(action.split(':')[1]);
+    return villageHouseEntries(rewardState).some(house=>house.cycle===cycle);
+  }
   return false;
 }
+function villageHouseMilestones(days,rewardState){
+  const earnedCount=Math.floor(days/VILLAGE_HOUSE_INTERVAL);
+  const claimedCount=villageHouseEntries(rewardState).length;
+  const visibleCount=adminPreviewActive?ADMIN_PREVIEW_HOUSE_COUNT:Math.max(1,earnedCount+1,claimedCount+1);
+  return Array.from({length:visibleCount},(_,index)=>{
+    const cycle=index+1;
+    const chosen=villageHouseEntries(rewardState).find(house=>house.cycle===cycle);
+    const chosenStyle=HOME_UPGRADE_OPTIONS.find(option=>option.id===chosen?.styleId);
+    return {
+      days:cycle*VILLAGE_HOUSE_INTERVAL,
+      title:`${cycle+1}번째 목표 집`,
+      description:chosenStyle?`${chosenStyle.label} · 전용 아이템 ${chosenStyle.items.length}개`:'목표에 어울리는 새 집과 전용 아이템을 골라요.',
+      action:`villageHouse:${cycle}`,
+      longGoal:cycle%3===0
+    };
+  });
+}
 function renderRewardJourney(){
-  const days=adminPreviewActive?REWARD_MILESTONES.at(-1).days:recordedDayCount();
-  const next=REWARD_MILESTONES.find(milestone=>days<milestone.days||(milestone.action&&!milestoneRewardClaimed(milestone.action)));
-  rewardTotalDays.textContent=adminPreviewActive?'관리자 · 전체 공개':`누적 ${days}일`;
-  rewardMilestones.innerHTML=REWARD_MILESTONES.map(milestone=>{
+  const days=adminPreviewActive?ADMIN_PREVIEW_HOUSE_COUNT*VILLAGE_HOUSE_INTERVAL:recordedDayCount();
+  const rewardState=adminPreviewActive?adminPreviewRewards:milestoneRewards;
+  const milestones=[...REWARD_MILESTONES,...villageHouseMilestones(days,rewardState)];
+  const next=milestones.find(milestone=>days<milestone.days||(milestone.action&&!milestoneRewardClaimed(milestone.action)));
+  rewardTotalDays.textContent=adminPreviewActive?`관리자 · ${ADMIN_PREVIEW_HOUSE_COUNT}개월 공개`:`누적 ${days}일`;
+  rewardMilestones.style.setProperty('--reward-count',milestones.length);
+  rewardMilestones.innerHTML=milestones.map(milestone=>{
     const reached=days>=milestone.days;
     const claimed=milestone.action?milestoneRewardClaimed(milestone.action):reached;
     const current=next?.days===milestone.days;
@@ -1807,19 +2045,33 @@ function renderRewardJourney(){
 }
 function saveMilestoneRewards(){ persistLocal(MILESTONE_REWARDS_KEY,JSON.stringify(milestoneRewards)); }
 function hexColor(value){ return `#${value.toString(16).padStart(6,'0')}`; }
+function villageHouseCycleFromAction(action){ return action?.startsWith('villageHouse:')?Number(action.split(':')[1]):0; }
 function openRewardModal(action){
   if(isSharedHome){ showCaptureNotice('공유받은 집이에요','보상은 집의 원래 주인만 선택할 수 있어요.'); return; }
-  const requiredDays=action==='rare'?7:14;
+  const villageCycle=villageHouseCycleFromAction(action);
+  const requiredDays=action==='rare'?7:action==='exterior'?14:villageCycle*VILLAGE_HOUSE_INTERVAL;
   if(!adminPreviewActive&&recordedDayCount()<requiredDays) return;
   currentRewardAction=action;
+  rewardHouseGoal.hidden=true;
+  rewardHouseGoalInput.value='';
   if(action==='rare'){
     rewardModalTitle.innerHTML='7일의 잘한 나에게<br /><em>희귀 아이템 선물</em>';
     rewardModalDescription.textContent='마음에 드는 장식 하나를 골라 집에 놓아보세요. 한 번 선택하면 이 집의 소중한 기념품이 됩니다.';
     rewardChoiceList.innerHTML=RARE_REWARD_OPTIONS.map(option=>`<button class="reward-choice" type="button" data-reward-choice="${option.id}"><img src="${decorThumbnail(option.id)}" alt="${option.label}" /><b>${option.label}</b><small>${option.description}</small></button>`).join('');
-  } else {
+  } else if(action==='exterior') {
     rewardModalTitle.innerHTML='14일의 잘한 나에게<br /><em>외관 변경 선물</em>';
     rewardModalDescription.textContent='지붕·창문·현관이 함께 어울리는 외관 색감을 골라주세요.';
     rewardChoiceList.innerHTML=EXTERIOR_REWARD_OPTIONS.map(option=>`<button class="reward-choice" type="button" data-reward-choice="${option.id}"><span class="exterior-swatch" style="--swatch-roof:${hexColor(option.roof)};--swatch-door:${hexColor(option.door)}"><i></i></span><b>${option.label}</b><small>${option.description}</small></button>`).join('');
+  } else if(villageCycle){
+    const existing=villageHouseEntries().find(house=>house.cycle===villageCycle);
+    rewardModalTitle.innerHTML=`${villageCycle*VILLAGE_HOUSE_INTERVAL}일의 기록으로<br /><em>${villageCycle+1}번째 집</em>`;
+    rewardModalDescription.textContent='새 집의 역할을 고르면 집과 전용 꾸미기 아이템이 함께 마을에 열려요.';
+    rewardHouseGoal.hidden=false;
+    rewardHouseGoalInput.value=existing?.goal||'';
+    rewardChoiceList.innerHTML=HOME_UPGRADE_OPTIONS.map(option=>`<button class="reward-choice${option.id===existing?.styleId?' selected':''}" type="button" data-reward-choice="${option.id}"><span class="village-house-swatch ${option.preview}"><i>${option.icon}</i></span><b>${option.label}</b><small>${option.description}<br />전용 아이템 ${option.items.length}개</small></button>`).join('');
+  }else{
+    currentRewardAction=null;
+    return;
   }
   rewardBackdrop.classList.add('open');
   rewardBackdrop.setAttribute('aria-hidden','false');
@@ -1827,9 +2079,33 @@ function openRewardModal(action){
 function closeRewardModal(){
   rewardBackdrop.classList.remove('open');
   rewardBackdrop.setAttribute('aria-hidden','true');
+  rewardHouseGoal.hidden=true;
   currentRewardAction=null;
 }
 function chooseMilestoneReward(choice){
+  const villageCycle=villageHouseCycleFromAction(currentRewardAction);
+  if(villageCycle){
+    const style=HOME_UPGRADE_OPTIONS.find(option=>option.id===choice);
+    if(!style) return;
+    const rewardState=adminPreviewActive?adminPreviewRewards:milestoneRewards;
+    if(!Array.isArray(rewardState.villageHouses)) rewardState.villageHouses=[];
+    const entry={cycle:villageCycle,styleId:choice,goal:rewardHouseGoalInput.value.trim(),createdAt:new Date().toISOString()};
+    const existingIndex=rewardState.villageHouses.findIndex(house=>house?.cycle===villageCycle);
+    if(existingIndex>=0){
+      if(!adminPreviewActive) return;
+      rewardState.villageHouses[existingIndex]=entry;
+    }else{
+      rewardState.villageHouses.push(entry);
+      rewardState.villageHouses.sort((a,b)=>a.cycle-b.cycle);
+    }
+    if(!adminPreviewActive) saveMilestoneRewards();
+    rebuildVillageHouses();
+    renderDecorOptions();
+    closeRewardModal();
+    renderRewardJourney();
+    showCaptureNotice(`${style.label}이 마을에 생겼어요!`,adminPreviewActive?'관리자 체험 집이며 실제 기록에는 저장되지 않아요.':`${style.items.length}개의 전용 아이템도 꾸미기 목록에 열렸어요.`);
+    return;
+  }
   if(adminPreviewActive&&currentRewardAction==='rare'){
     const reward=RARE_REWARD_OPTIONS.find(option=>option.id===choice);
     if(!reward) return;
@@ -2143,7 +2419,7 @@ function createAdminInteriorLayout(){
 function enableAdminPreview(){
   if(adminPreviewActive||!adminPreviewAllowed) return;
   adminDecorLayoutSnapshot=JSON.parse(JSON.stringify(decorLayout));
-  adminPreviewRewards={rareItem:'',exteriorStyle:''};
+  adminPreviewRewards={rareItem:'',exteriorStyle:'',villageHouses:[]};
   createAdminInteriorLayout();
   adminPreviewActive=true;
   adminPreviewButton.classList.add('active');
@@ -2153,6 +2429,7 @@ function enableAdminPreview(){
   document.body.classList.add('admin-preview-active');
   updateDoorMissionUI();
   renderRewardJourney();
+  rebuildVillageHouses();
   renderDecorOptions();
   if(interiorView.classList.contains('open')){ renderInteriorRoomMap(); updateInteriorRoomPanel(); renderInteriorItems(); }
   renderInteriorInventory();
@@ -2161,7 +2438,7 @@ function openAdminPreview(){
   if(!adminPreviewAllowed) return;
   enableAdminPreview();
   adminPreviewStatus.classList.toggle('active',adminPreviewActive);
-  adminPreviewStatus.querySelector('span').textContent='현재 구현된 잠금 기능이 모두 열렸어요. 체험 내용은 실제 기록과 선택에 저장되지 않아요.';
+  adminPreviewStatus.querySelector('span').textContent='잠금 기능과 30·60·90일 목표 집 선택이 열렸어요. 체험 내용은 실제 기록과 선택에 저장되지 않아요.';
   stopAdminPreviewButton.hidden=!adminPreviewActive;
   adminPreviewBackdrop.classList.add('open');
   adminPreviewBackdrop.setAttribute('aria-hidden','false');
@@ -2183,7 +2460,7 @@ function startAdminPreview(mode){
     showCaptureNotice('관리자 아이템 배치 체험','모든 실내 아이템을 자유롭게 움직여 보세요. 체험 배치는 저장되지 않아요.');
   }else{
     document.querySelector('.reward-journey')?.scrollIntoView({behavior:'smooth',block:'center'});
-    showCaptureNotice('관리자 보상 체험','희귀 장식과 외관 변경을 날짜와 관계없이 선택할 수 있어요.');
+    showCaptureNotice('관리자 보상 체험','희귀 장식·외관 변경과 매달 늘어나는 목표 집을 날짜와 관계없이 선택할 수 있어요.');
   }
 }
 function stopAdminPreview(){
@@ -2191,7 +2468,7 @@ function stopAdminPreview(){
   adminPreviewActive=false;
   adminInteriorLayout={};
   adminInteriorStyle={};
-  adminPreviewRewards={rareItem:'',exteriorStyle:''};
+  adminPreviewRewards={rareItem:'',exteriorStyle:'',villageHouses:[]};
   if(adminDecorLayoutSnapshot) decorLayout=adminDecorLayoutSnapshot;
   adminDecorLayoutSnapshot=null;
   adminPreviewButton.classList.remove('active');
@@ -2202,6 +2479,7 @@ function stopAdminPreview(){
   closeAdminPreview();
   applyExteriorReward();
   applyInteriorStyle();
+  rebuildVillageHouses();
   rebuildDecorations();
   adminFutureDecorCounter=0;
   renderDecorOptions();

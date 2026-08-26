@@ -9,8 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js" />
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.2/+esm" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=25" />
+    <link rel="stylesheet" href="./styles.css?v=26" />
   </head>
   <body>
     <main class="app-shell">
@@ -23,6 +24,10 @@
     <button class="streak needs-setup" id="streak-button" type="button" aria-label="따뜻하게 살기 시작한 날 정하기">
       <b id="streak-number">시작일</b><span id="streak-copy">을 정해 주세요</span><i aria-hidden="true">⌄</i>
     </button>
+          <button class="round-button account-button" id="open-account" type="button" aria-label="기록 보관 계정 열기" title="기록 보관 계정">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.8 19c.6-3.5 2.7-5.3 6.2-5.3s5.6 1.8 6.2 5.3"/></svg>
+            <span class="account-status-dot" id="account-status-dot" aria-hidden="true"></span>
+          </button>
           <button class="round-button reminder-button" id="open-reminders" type="button" aria-label="기록 알림 설정" title="기록 알림 설정">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 10.2a5.2 5.2 0 0 1 10.4 0c0 6 2.2 6.1 2.2 7.2H4.6c0-1.1 2.2-1.2 2.2-7.2Z"/><path d="M9.7 19.1a2.5 2.5 0 0 0 4.6 0"/></svg>
             <span class="reminder-status-dot" id="reminder-status-dot" aria-hidden="true"></span>
@@ -259,6 +264,41 @@
       </section>
     </div>
 
+    <div class="entry-backdrop auth-backdrop" id="auth-backdrop" aria-hidden="true">
+      <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button class="close-modal" id="close-auth" aria-label="닫기">×</button>
+        <div class="auth-illustration" aria-hidden="true"><span>♥</span><i></i><b></b></div>
+        <div id="auth-signed-out">
+          <p class="eyebrow"><span></span> KEEP MY LITTLE DAYS</p>
+          <h2 id="auth-title">기록을 안전하게<br /><em>보관할까요?</em></h2>
+          <p class="auth-description">로그인하면 지금 남긴 기록과 집을 다른 컴퓨터에서도 이어갈 수 있어요. 로그인하지 않아도 계속 사용할 수 있습니다.</p>
+          <form class="auth-email-form" id="auth-email-form">
+            <label for="auth-email">인증 코드를 받을 이메일</label>
+            <div><input id="auth-email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required /><button type="submit">인증 코드 받기</button></div>
+          </form>
+          <form class="auth-otp-form" id="auth-otp-form" hidden>
+            <label for="auth-otp">이메일로 받은 6자리 코드</label>
+            <div><input id="auth-otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required /><button type="submit">확인</button></div>
+            <button class="auth-change-email" id="auth-change-email" type="button">이메일 주소 다시 입력</button>
+          </form>
+          <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
+          <div class="auth-divider"><span>또는</span></div>
+          <button class="google-auth-button" id="google-auth" type="button"><span aria-hidden="true">G</span> Google로 계속하기</button>
+          <button class="auth-later-button" id="auth-later" type="button">지금은 이 기기에만 보관하기</button>
+          <p class="auth-privacy-note">이메일은 로그인과 기록 동기화에만 사용합니다. 잘한 일과 미래 편지는 본인 계정에서만 볼 수 있도록 보호합니다. <a href="./privacy.html" target="_blank" rel="noopener">개인정보 처리 안내</a></p>
+        </div>
+        <div class="auth-account-view" id="auth-signed-in" hidden>
+          <p class="eyebrow"><span></span> SAFE &amp; SYNCED</p>
+          <h2>기록을 안전하게<br /><em>보관하고 있어요</em></h2>
+          <p class="auth-account-email" id="auth-account-email"></p>
+          <p class="auth-sync-status" id="auth-sync-status" role="status"><i></i><span>동기화 상태를 확인하고 있어요.</span></p>
+          <button class="primary-button auth-sync-now" id="auth-sync-now" type="button">지금 동기화하기 <span>→</span></button>
+          <button class="auth-sign-out" id="auth-sign-out" type="button">로그아웃</button>
+          <p class="auth-privacy-note">로그아웃해도 이 기기의 기록은 남아 있습니다. 공용 기기라면 별도의 데이터 삭제 기능이 필요합니다. <a href="./privacy.html" target="_blank" rel="noopener">개인정보 처리 안내</a></p>
+        </div>
+      </section>
+    </div>
+
     <button class="admin-preview-button" id="admin-preview-button" type="button" aria-label="관리자 미리보기" aria-pressed="false" data-tooltip="관리자만 사용가능합니다." hidden>
       <span class="admin-key-icon" aria-hidden="true"></span>
     </button>
@@ -324,6 +364,7 @@
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-    <script type="module" src="./main.js?v=113"></script>
+    <script type="module" src="./main.js?v=114"></script>
   </body>
 </html>
+

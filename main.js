@@ -532,7 +532,8 @@ if(!isSharedHome){
     if(session) await hydrateAccountState(session.user.id);
   } catch(error) { accountSyncError=error?.message||'동기화 준비 중 문제가 생겼어요.'; }
 }
-const adminPreviewAllowed=!isSharedHome&&(['localhost','127.0.0.1'].includes(location.hostname)||new URLSearchParams(location.search).get('admin')==='preview');
+const adminPreviewRequested=new URLSearchParams(location.search).get('admin')==='preview';
+const adminPreviewAllowed=!isSharedHome&&(['localhost','127.0.0.1'].includes(location.hostname)||adminPreviewRequested);
 adminPreviewButton.hidden=!adminPreviewAllowed;
 const sharedView=sharedHome?.view||{};
 const sharedRotation=Number.isFinite(sharedView.rotation)?sharedView.rotation:.44;
@@ -3204,3 +3205,4 @@ adminPreviewBackdrop.addEventListener('click',event=>{
 });
 stopAdminPreviewButton.addEventListener('click',stopAdminPreview);
 document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&adminPreviewBackdrop.classList.contains('open')) closeAdminPreview(); });
+if(adminPreviewRequested) enableAdminPreview();

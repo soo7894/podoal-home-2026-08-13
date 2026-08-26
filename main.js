@@ -1,4 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.2/+esm';
 
 const canvas = document.querySelector('#house-canvas');
 const sceneWrap = document.querySelector('.scene-wrap');
@@ -90,6 +91,18 @@ const adminPreviewButton = document.querySelector('#admin-preview-button');
 const adminPreviewBackdrop = document.querySelector('#admin-preview-backdrop');
 const adminPreviewStatus = document.querySelector('#admin-preview-status');
 const stopAdminPreviewButton = document.querySelector('#stop-admin-preview');
+const openAccountButton = document.querySelector('#open-account');
+const accountStatusDot = document.querySelector('#account-status-dot');
+const authBackdrop = document.querySelector('#auth-backdrop');
+const authSignedOut = document.querySelector('#auth-signed-out');
+const authSignedIn = document.querySelector('#auth-signed-in');
+const authEmailForm = document.querySelector('#auth-email-form');
+const authOtpForm = document.querySelector('#auth-otp-form');
+const authEmailInput = document.querySelector('#auth-email');
+const authOtpInput = document.querySelector('#auth-otp');
+const authMessage = document.querySelector('#auth-message');
+const authAccountEmail = document.querySelector('#auth-account-email');
+const authSyncStatus = document.querySelector('#auth-sync-status');
 const STORAGE_KEY = 'my-little-day-memories-v1';
 const HOUSE_NAME_KEY = 'my-little-day-house-name-v1';
 const STREAK_START_KEY = 'my-little-day-streak-start-v1';
@@ -107,8 +120,14 @@ const FUTURE_LETTER_DAYS = 15;
 const SHARE_HASH_PREFIX = '#my-little-home=';
 const SHARE_ID_PREFIX = '#share=';
 const SHARE_LINK_CACHE_KEY = 'my-little-day-last-share-link-v1';
+const AUTH_PROMPT_DISMISSED_KEY = 'my-little-day-auth-prompt-dismissed-v1';
+const PRIVATE_STATE_SCHEMA_VERSION = 1;
+const SUPABASE_URL = 'https://alpxeyqkqlacbbluwazq.supabase.co';
 const SHARE_ENDPOINT = 'https://alpxeyqkqlacbbluwazq.supabase.co/functions/v1/home-share';
 const SHARE_PUBLISHABLE_KEY = 'sb_publishable_kx3FsYOCmIZJTVcIDr1B0g_FWZr8BT_';
+const supabase = createClient(SUPABASE_URL,SHARE_PUBLISHABLE_KEY,{
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+});
 const REMINDER_PRESETS = {
   morning:{label:'아침',time:'08:00'},
   lunch:{label:'점심',time:'12:30'},
@@ -395,16 +414,115 @@ function encodeSharedHome(data){
   bytes.forEach(byte=>{ binary+=String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
+function safeStoredJSON(key,fallback){
+  try { const value=JSON.parse(localStorage.getItem(key)||'null'); return value??fallback; }
+  catch { return fallback; }
+}
+function objectValue(value,fallback={}){ return value&&typeof value==='object'&&!Array.isArray(value)?value:fallback; }
+function privateStateFromStorage(){
+  return {
+    v:PRIVATE_STATE_SCHEMA_VERSION,
+    memories:Array.isArray(safeStoredJSON(STORAGE_KEY,[]))?safeStoredJSON(STORAGE_KEY,[]):[],
+    houseName:localStorage.getItem(HOUSE_NAME_KEY)||'우리',
+    streakStartDate:localStorage.getItem(STREAK_START_KEY)||'',
+    decorLayout:objectValue(safeStoredJSON(DECOR_LAYOUT_KEY,{})),
+    interiorLayout:objectValue(safeStoredJSON(INTERIOR_LAYOUT_KEY,{})),
+    interiorStyle:objectValue(safeStoredJSON(INTERIOR_STYLE_KEY,{})),
+    milestoneRewards:objectValue(safeStoredJSON(MILESTONE_REWARDS_KEY,{})),
+    futureLetters:Array.isArray(safeStoredJSON(FUTURE_LETTERS_KEY,[]))?safeStoredJSON(FUTURE_LETTERS_KEY,[]):[],
+    reminderSettings:objectValue(safeStoredJSON(REMINDER_STORAGE_KEY,{}))
+  };
+}
+function normalizePrivateState(value){
+  const state=objectValue(value,null);
+  if(!state||state.v!==PRIVATE_STATE_SCHEMA_VERSION) return null;
+  return {
+    v:PRIVATE_STATE_SCHEMA_VERSION,
+    memories:Array.isArray(state.memories)?state.memories.filter(item=>item&&typeof item.text==='string'&&item.date):[],
+    houseName:typeof state.houseName==='string'?state.houseName.slice(0,8):'우리',
+    streakStartDate:typeof state.streakStartDate==='string'?state.streakStartDate:'',
+    decorLayout:objectValue(state.decorLayout),
+    interiorLayout:objectValue(state.interiorLayout),
+    interiorStyle:objectValue(state.interiorStyle),
+    milestoneRewards:objectValue(state.milestoneRewards),
+    futureLetters:Array.isArray(state.futureLetters)?state.futureLetters.filter(item=>item&&typeof item.id==='string'&&typeof item.content==='string'):[],
+    reminderSettings:objectValue(state.reminderSettings)
+  };
+}
+function writePrivateStateToStorage(state){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state.memories));
+  localStorage.setItem(HOUSE_NAME_KEY,state.houseName);
+  localStorage.setItem(STREAK_START_KEY,state.streakStartDate);
+  localStorage.setItem(DECOR_LAYOUT_KEY,JSON.stringify(state.decorLayout));
+  localStorage.setItem(INTERIOR_LAYOUT_KEY,JSON.stringify(state.interiorLayout));
+  localStorage.setItem(INTERIOR_STYLE_KEY,JSON.stringify(state.interiorStyle));
+  localStorage.setItem(MILESTONE_REWARDS_KEY,JSON.stringify(state.milestoneRewards));
+  localStorage.setItem(FUTURE_LETTERS_KEY,JSON.stringify(state.futureLetters));
+  localStorage.setItem(REMINDER_STORAGE_KEY,JSON.stringify(state.reminderSettings));
+}
+function mergeUniqueBy(items,key){
+  const seen=new Set();
+  return items.filter(item=>{ const id=item?.[key]; if(!id||seen.has(id)) return false; seen.add(id); return true; });
+}
+function localStateHasPersonalData(state){
+  return state.memories.length>0||state.futureLetters.length>0||Boolean(localStorage.getItem(HOUSE_NAME_KEY)||localStorage.getItem(DECOR_LAYOUT_KEY)||localStorage.getItem(INTERIOR_LAYOUT_KEY));
+}
+function mergePrivateStates(remote,local){
+  if(!remote) return local;
+  if(!localStateHasPersonalData(local)) return remote;
+  return {
+    v:PRIVATE_STATE_SCHEMA_VERSION,
+    memories:mergeUniqueBy([...local.memories,...remote.memories],'date').sort((a,b)=>new Date(b.date)-new Date(a.date)),
+    houseName:localStorage.getItem(HOUSE_NAME_KEY)?local.houseName:remote.houseName,
+    streakStartDate:local.streakStartDate||remote.streakStartDate,
+    decorLayout:{...remote.decorLayout,...local.decorLayout},
+    interiorLayout:{...remote.interiorLayout,...local.interiorLayout},
+    interiorStyle:{...remote.interiorStyle,...local.interiorStyle,wallDecor:{...remote.interiorStyle.wallDecor,...local.interiorStyle.wallDecor}},
+    milestoneRewards:{...remote.milestoneRewards,...local.milestoneRewards},
+    futureLetters:mergeUniqueBy([...local.futureLetters,...remote.futureLetters],'id'),
+    reminderSettings:Object.keys(local.reminderSettings).length?local.reminderSettings:remote.reminderSettings
+  };
+}
+let accountSession=null;
+let accountSyncTimer=0;
+let accountSyncError='';
+let accountLastSyncedAt='';
+async function upsertPrivateState(userId,state){
+  const {error}=await supabase.from('user_home_states').upsert({user_id:userId,state,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+  if(error) throw error;
+}
+async function hydrateAccountState(userId){
+  const local=privateStateFromStorage();
+  const {data,error}=await supabase.from('user_home_states').select('state').eq('user_id',userId).maybeSingle();
+  if(error) throw error;
+  const remote=normalizePrivateState(data?.state);
+  const merged=mergePrivateStates(remote,local);
+  writePrivateStateToStorage(merged);
+  await upsertPrivateState(userId,merged);
+  accountLastSyncedAt=new Date().toISOString();
+  return merged;
+}
 let sharedHome=decodeSharedHome();
 const shortSharedHomeId=sharedHomeIdFromHash();
 if(!sharedHome&&shortSharedHomeId) sharedHome=await loadSharedHome(shortSharedHomeId);
 const isSharedHome=Boolean(sharedHome);
+if(!isSharedHome){
+  try {
+    const {data:{session}}=await supabase.auth.getSession();
+    accountSession=session;
+    if(session) await hydrateAccountState(session.user.id);
+  } catch(error) { accountSyncError=error?.message||'동기화 준비 중 문제가 생겼어요.'; }
+}
 const adminPreviewAllowed=!isSharedHome&&(['localhost','127.0.0.1'].includes(location.hostname)||new URLSearchParams(location.search).get('admin')==='preview');
 adminPreviewButton.hidden=!adminPreviewAllowed;
 const sharedView=sharedHome?.view||{};
 const sharedRotation=Number.isFinite(sharedView.rotation)?sharedView.rotation:.44;
 const sharedCameraHeight=Number.isFinite(sharedView.cameraHeight)?sharedView.cameraHeight:6.3;
-function persistLocal(key,value){ if(!isSharedHome&&!adminPreviewActive) localStorage.setItem(key,value); }
+function persistLocal(key,value){
+  if(isSharedHome||adminPreviewActive) return;
+  localStorage.setItem(key,value);
+  scheduleAccountSync();
+}
 let memories = sharedHome?.memories ?? JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let streakStartDate = sharedHome?.streakStartDate ?? (localStorage.getItem(STREAK_START_KEY) || '');
 let decorLayout = sharedHome?.decorLayout ?? JSON.parse(localStorage.getItem(DECOR_LAYOUT_KEY) || '{}');
@@ -442,6 +560,75 @@ function loadReminderSettings(){
   }]));
 }
 let reminderSettings=loadReminderSettings();
+function syncTimeLabel(value){
+  if(!value) return '아직 동기화하지 않았어요.';
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?'동기화됨':`${date.getMonth()+1}월 ${date.getDate()}일 ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')} 동기화됨`;
+}
+function updateAccountView(){
+  const signedIn=Boolean(accountSession&&!isSharedHome);
+  openAccountButton.classList.toggle('connected',signedIn);
+  openAccountButton.classList.toggle('sync-error',Boolean(accountSyncError));
+  openAccountButton.setAttribute('aria-label',signedIn?'기록 보관 계정 및 동기화 상태 열기':'기록 보관 계정 연결하기');
+  openAccountButton.title=signedIn?'기록 동기화됨':'기록 보관 계정 연결';
+  authSignedOut.hidden=signedIn;
+  authSignedIn.hidden=!signedIn;
+  if(signedIn) authAccountEmail.textContent=accountSession.user.email||'연결된 계정';
+  authSyncStatus.classList.toggle('error',Boolean(accountSyncError));
+  authSyncStatus.classList.remove('syncing');
+  authSyncStatus.querySelector('span').textContent=accountSyncError||syncTimeLabel(accountLastSyncedAt);
+}
+function setAccountSyncing(syncing){
+  openAccountButton.classList.toggle('syncing',syncing);
+  authSyncStatus.classList.toggle('syncing',syncing);
+  if(syncing) authSyncStatus.querySelector('span').textContent='기록을 안전하게 보관하고 있어요…';
+}
+async function syncPrivateStateNow({notify=false}={}){
+  if(!accountSession||isSharedHome||adminPreviewActive) return;
+  clearTimeout(accountSyncTimer);
+  setAccountSyncing(true);
+  try {
+    await upsertPrivateState(accountSession.user.id,privateStateFromStorage());
+    accountLastSyncedAt=new Date().toISOString();
+    accountSyncError='';
+    if(notify) showCaptureNotice('기록을 안전하게 보관했어요','다른 컴퓨터에서도 같은 이메일로 로그인하면 이어서 사용할 수 있어요.');
+  } catch(error) {
+    accountSyncError='동기화하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+    if(notify) showCaptureNotice('지금은 동기화하지 못했어요','이 기기의 기록은 그대로 남아 있습니다.');
+  } finally { setAccountSyncing(false); updateAccountView(); }
+}
+function scheduleAccountSync(){
+  if(!accountSession||isSharedHome||adminPreviewActive) return;
+  clearTimeout(accountSyncTimer);
+  setAccountSyncing(true);
+  accountSyncTimer=setTimeout(()=>syncPrivateStateNow(),900);
+}
+function setAuthMessage(message,{error=false}={}){
+  authMessage.textContent=message;
+  authMessage.classList.toggle('error',error);
+}
+function openAuthModal(){
+  if(isSharedHome){ showCaptureNotice('공유받은 집이에요','계정 연결은 내 집에서 사용할 수 있어요.'); return; }
+  updateAccountView();
+  authBackdrop.classList.add('open');
+  authBackdrop.setAttribute('aria-hidden','false');
+  setTimeout(()=>accountSession?document.querySelector('#auth-sync-now').focus():authEmailInput.focus(),180);
+}
+function closeAuthModal(){ authBackdrop.classList.remove('open'); authBackdrop.setAttribute('aria-hidden','true'); }
+function setAuthBusy(button,busy){ button.disabled=busy; button.setAttribute('aria-busy',String(busy)); }
+async function finishAccountSignIn(session){
+  accountSession=session;
+  setAuthMessage('기존 기록을 계정에 연결하고 있어요.');
+  try {
+    await hydrateAccountState(session.user.id);
+    accountSyncError='';
+    location.reload();
+  } catch(error) {
+    accountSyncError='계정은 연결했지만 기록을 동기화하지 못했어요.';
+    updateAccountView();
+    setAuthMessage(accountSyncError,{error:true});
+  }
+}
 if(!isSharedHome&&!streakStartDate&&memories.length){
   const firstRecordTime=Math.min(...memories.map(memory=>Date.parse(memory.date)).filter(Number.isFinite));
   if(Number.isFinite(firstRecordTime)){
@@ -1618,7 +1805,7 @@ function renderRewardJourney(){
     return `<article class="${classes}"><span class="reward-day">${milestone.days}일${reached?'<i>✓</i>':''}</span><h4>${milestone.title}</h4><p>${milestone.description}</p>${footer}</article>`;
   }).join('');
 }
-function saveMilestoneRewards(){ localStorage.setItem(MILESTONE_REWARDS_KEY,JSON.stringify(milestoneRewards)); }
+function saveMilestoneRewards(){ persistLocal(MILESTONE_REWARDS_KEY,JSON.stringify(milestoneRewards)); }
 function hexColor(value){ return `#${value.toString(16).padStart(6,'0')}`; }
 function openRewardModal(action){
   if(isSharedHome){ showCaptureNotice('공유받은 집이에요','보상은 집의 원래 주인만 선택할 수 있어요.'); return; }
@@ -2401,7 +2588,7 @@ function closeReminderModal(){
 }
 function saveReminderSettings({close=true,notify=true}={}){
   reminderSettings=collectReminderForm();
-  localStorage.setItem(REMINDER_STORAGE_KEY,JSON.stringify(reminderSettings));
+  persistLocal(REMINDER_STORAGE_KEY,JSON.stringify(reminderSettings));
   updateReminderButton();
   if(close) closeReminderModal();
   if(notify){
@@ -2442,7 +2629,7 @@ function buildReminderCalendar(){
 function downloadReminderCalendar(){
   reminderSettings=collectReminderForm();
   if(!enabledReminders().length){ updateCalendarButton(); return; }
-  localStorage.setItem(REMINDER_STORAGE_KEY,JSON.stringify(reminderSettings));
+  persistLocal(REMINDER_STORAGE_KEY,JSON.stringify(reminderSettings));
   updateReminderButton();
   const blob=new Blob([buildReminderCalendar()],{type:'text/calendar;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -2509,6 +2696,7 @@ decorOptions.addEventListener('click',event=>{
 document.querySelector('#save-memory').addEventListener('click',()=>{
   const text=input.value.trim();
   if(!text){ input.focus(); input.placeholder='오늘의 잘한 일을 한 줄로 적어 주세요 :)'; return; }
+  const wasFirstRecord=memories.length===0;
   const flowerColor=selectedDecor==='flower'?randomFlowerColor():null;
   const recordedAt=new Date();
   const memory={text,decor:selectedDecor,date:recordedAt.toISOString(),flowerColor};
@@ -2527,6 +2715,7 @@ document.querySelector('#save-memory').addEventListener('click',()=>{
   input.value='';
   closeModal();
   showCaptureNotice(shouldSetStartDate?'오늘부터 시작했어요!':'오늘의 장식이 놓였어요!',shouldSetStartDate?'첫 기록 날짜가 시작일로 자동 설정되고, 장식도 집에 놓였어요.':'집이 조금 더 따뜻해졌습니다.');
+  if(wasFirstRecord&&!accountSession&&!localStorage.getItem(AUTH_PROMPT_DISMISSED_KEY)) setTimeout(openAuthModal,2200);
 });
 input.addEventListener('keydown',e=>{ if(e.key==='Enter') document.querySelector('#save-memory').click(); });
 openFutureLetterButton.addEventListener('click',openFutureLetter);
@@ -2659,6 +2848,74 @@ document.querySelector('#close-guide').addEventListener('click',closeGuide);
 document.querySelector('#finish-guide').addEventListener('click',closeGuide);
 guideBackdrop.addEventListener('click',event=>{ if(event.target===guideBackdrop) closeGuide(); });
 if(!localStorage.getItem(GUIDE_SEEN_KEY)) setTimeout(openGuide,550);
+
+openAccountButton.hidden=isSharedHome;
+openAccountButton.addEventListener('click',openAuthModal);
+document.querySelector('#close-auth').addEventListener('click',closeAuthModal);
+authBackdrop.addEventListener('click',event=>{ if(event.target===authBackdrop) closeAuthModal(); });
+document.querySelector('#auth-later').addEventListener('click',()=>{
+  localStorage.setItem(AUTH_PROMPT_DISMISSED_KEY,'true');
+  closeAuthModal();
+});
+document.querySelector('#auth-change-email').addEventListener('click',()=>{
+  authOtpForm.hidden=true;
+  authEmailForm.hidden=false;
+  authOtpInput.value='';
+  setAuthMessage('');
+  authEmailInput.focus();
+});
+authEmailForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const email=authEmailInput.value.trim().toLowerCase();
+  if(!email) return;
+  const button=authEmailForm.querySelector('button[type="submit"]');
+  setAuthBusy(button,true); setAuthMessage('인증 코드를 보내고 있어요.');
+  try {
+    const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+    if(error) throw error;
+    authEmailForm.hidden=true;
+    authOtpForm.hidden=false;
+    setAuthMessage(`${email}로 보낸 6자리 코드를 입력해 주세요.`);
+    authOtpInput.focus();
+  } catch(error) { setAuthMessage('인증 코드를 보내지 못했어요. 이메일 주소와 잠시 후 다시 시도해 주세요.',{error:true}); }
+  finally { setAuthBusy(button,false); }
+});
+authOtpForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const email=authEmailInput.value.trim().toLowerCase();
+  const token=authOtpInput.value.replace(/\D/g,'').slice(0,6);
+  if(token.length!==6){ setAuthMessage('6자리 인증 코드를 입력해 주세요.',{error:true}); return; }
+  const button=authOtpForm.querySelector('button[type="submit"]');
+  setAuthBusy(button,true); setAuthMessage('코드를 확인하고 있어요.');
+  try {
+    const {data,error}=await supabase.auth.verifyOtp({email,token,type:'email'});
+    if(error||!data.session) throw error||new Error('session-missing');
+    await finishAccountSignIn(data.session);
+  } catch(error) { setAuthMessage('코드가 올바르지 않거나 시간이 지났어요. 새 코드를 받아 다시 시도해 주세요.',{error:true}); setAuthBusy(button,false); }
+});
+document.querySelector('#google-auth').addEventListener('click',async event=>{
+  const button=event.currentTarget;
+  setAuthBusy(button,true); setAuthMessage('Google 로그인 화면으로 이동하고 있어요.');
+  const redirectTo=`${location.origin}${location.pathname}`;
+  const {error}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo}});
+  if(error){ setAuthMessage('Google 로그인을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.',{error:true}); setAuthBusy(button,false); }
+});
+document.querySelector('#auth-sync-now').addEventListener('click',()=>syncPrivateStateNow({notify:true}));
+document.querySelector('#auth-sign-out').addEventListener('click',async event=>{
+  setAuthBusy(event.currentTarget,true);
+  const {error}=await supabase.auth.signOut();
+  if(error){ accountSyncError='로그아웃하지 못했어요. 잠시 후 다시 시도해 주세요.'; setAuthBusy(event.currentTarget,false); updateAccountView(); return; }
+  accountSession=null; accountSyncError=''; accountLastSyncedAt='';
+  setAuthBusy(event.currentTarget,false); updateAccountView(); closeAuthModal();
+  showCaptureNotice('로그아웃했어요','이 기기의 기록은 그대로 남아 있습니다.');
+});
+supabase.auth.onAuthStateChange((event,session)=>{
+  accountSession=session;
+  if(event==='SIGNED_OUT'){ accountSyncError=''; accountLastSyncedAt=''; }
+  updateAccountView();
+});
+document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&authBackdrop.classList.contains('open')) closeAuthModal(); });
+updateAccountView();
 
 adminPreviewButton.addEventListener('click',toggleAdminPreviewMode);
 document.querySelector('#close-admin-preview').addEventListener('click',closeAdminPreview);
